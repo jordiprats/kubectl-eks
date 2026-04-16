@@ -76,6 +76,11 @@ You can filter by cluster name, region, version, or AWS profile.`,
 			arnOnly = false
 		}
 
+		nameOnly, err := cmd.Flags().GetBool("name-only")
+		if err != nil {
+			nameOnly = false
+		}
+
 		output, err := cmd.Flags().GetString("output")
 		if err != nil {
 			output = ""
@@ -172,6 +177,10 @@ You can filter by cluster name, region, version, or AWS profile.`,
 			for _, cluster := range clusterList {
 				fmt.Println(cluster.Arn)
 			}
+		} else if nameOnly {
+			for _, cluster := range clusterList {
+				fmt.Println(cluster.ClusterName)
+			}
 		} else {
 			if wide {
 				clusterList = enrichClusterNodeStats(clusterList)
@@ -251,6 +260,7 @@ func init() {
 	listCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	listCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	listCmd.Flags().BoolP("arn-only", "1", false, "Output only cluster ARNs, one per line")
+	listCmd.Flags().BoolP("name-only", "2", false, "Output only cluster names, one per line")
 	listCmd.Flags().StringP("output", "o", "", "Output format: wide")
 
 	rootCmd.AddCommand(listCmd)
