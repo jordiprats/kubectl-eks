@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var useCmdCommentPrefix string
+
 func selectClusterByAge(clusterList []data.ClusterInfo, useOldest bool) (*data.ClusterInfo, error) {
 	if len(clusterList) == 0 {
 		return nil, fmt.Errorf("no clusters available for age-based selection")
@@ -142,7 +144,13 @@ func tryFastSwitch(target, namespace string) string {
 			os.Exit(1)
 		}
 	}
-	printSwitchSuccess(candidateARN, namespace, "")
+	cachedProfile := ""
+	if CachedData != nil {
+		if info, ok := CachedData.ClusterByARN[candidateARN]; ok {
+			cachedProfile = info.AWSProfile
+		}
+	}
+	printSwitchSuccess(candidateARN, namespace, cachedProfile)
 	return candidateARN
 }
 
@@ -238,7 +246,14 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 						os.Exit(1)
 					}
 				}
-				printSwitchSuccess(clusterArn, namespace, "")
+				cachedProfile := ""
+				loadCacheFromDisk()
+				if CachedData != nil {
+					if info, ok := CachedData.ClusterByARN[clusterArn]; ok {
+						cachedProfile = info.AWSProfile
+					}
+				}
+				printSwitchSuccess(clusterArn, namespace, cachedProfile)
 				return
 			}
 		}
@@ -268,10 +283,10 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 			fmt.Printf("Failed to set namespace: %s\n", err.Error())
 			os.Exit(1)
 		} else {
-			fmt.Printf("Switched to EKS cluster %q (namespace: %q) in region %q using profile %q\n", clusterInfo.ClusterName, namespace, clusterInfo.Region, clusterInfo.AWSProfile)
+			fmt.Printf("%sSwitched to EKS cluster %q (namespace: %q) in region %q using profile %q\n", useCmdCommentPrefix, clusterInfo.ClusterName, namespace, clusterInfo.Region, clusterInfo.AWSProfile)
 		}
 	} else {
-		fmt.Printf("Switched to EKS cluster %q in region %q using profile %q\n", clusterInfo.ClusterName, clusterInfo.Region, clusterInfo.AWSProfile)
+		fmt.Printf("%sSwitched to EKS cluster %q in region %q using profile %q\n", useCmdCommentPrefix, clusterInfo.ClusterName, clusterInfo.Region, clusterInfo.AWSProfile)
 	}
 }
 
@@ -290,13 +305,13 @@ func printSwitchSuccess(clusterArn, namespace, profile string) {
 
 	switch {
 	case namespace != "" && profile != "":
-		fmt.Printf("Switched to EKS cluster %q (namespace: %q) in region %q using profile %q\n", clusterName, namespace, region, profile)
+		fmt.Printf("%sSwitched to EKS cluster %q (namespace: %q) in region %q using profile %q\n", useCmdCommentPrefix, clusterName, namespace, region, profile)
 	case namespace != "":
-		fmt.Printf("Switched to EKS cluster %q (namespace: %q) in region %q\n", clusterName, namespace, region)
+		fmt.Printf("%sSwitched to EKS cluster %q (namespace: %q) in region %q\n", useCmdCommentPrefix, clusterName, namespace, region)
 	case profile != "":
-		fmt.Printf("Switched to EKS cluster %q in region %q using profile %q\n", clusterName, region, profile)
+		fmt.Printf("%sSwitched to EKS cluster %q in region %q using profile %q\n", useCmdCommentPrefix, clusterName, region, profile)
 	default:
-		fmt.Printf("Switched to EKS cluster %q in region %q\n", clusterName, region)
+		fmt.Printf("%sSwitched to EKS cluster %q in region %q\n", useCmdCommentPrefix, clusterName, region)
 	}
 }
 
@@ -314,7 +329,7 @@ func switchClusterWithInfo(clusterInfo *data.ClusterInfo, namespace, profile str
 						os.Exit(1)
 					}
 				}
-				printSwitchSuccess(clusterInfo.Arn, namespace, "")
+				printSwitchSuccess(clusterInfo.Arn, namespace, clusterInfo.AWSProfile)
 				return
 			}
 		}
@@ -416,6 +431,16 @@ profile for authentication.`,
 			newest = false
 		}
 
+		comment, err := cmd.Flags().GetBool("bash-comment")
+		if err != nil {
+			comment = false
+		}
+		if comment {
+			useCmdCommentPrefix = "# "
+		} else {
+			useCmdCommentPrefix = ""
+		}
+
 		// Fast path: try to reuse an existing kubeconfig context without
 		// any AWS API calls. Works for both ARN and name-based lookups.
 		if profile == "" && !refresh {
@@ -450,6 +475,7 @@ func init() {
 	useCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	useCmd.Flags().Bool("oldest", false, "When multiple clusters match, switch to the oldest cluster")
 	useCmd.Flags().Bool("newest", false, "When multiple clusters match, switch to the newest cluster")
+	useCmd.Flags().Bool("bash-comment", false, "Prefix output with '# ' so it looks like a bash comment")
 
 	rootCmd.AddCommand(useCmd)
 }
