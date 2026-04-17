@@ -50,10 +50,10 @@ Supports output formats:
   kubectl eks mget deployments -o wide
   
   # Filter clusters and resources
-  kubectl eks mget pods --name-contains prod --resource-starts-with nginx
+  kubectl eks mget pods --cluster-contains prod --resource-starts-with nginx
 
   # Filter resources by name substring
-  kubectl eks mget pods --name-contains prod --resource-contains api
+  kubectl eks mget pods --cluster-contains prod --resource-contains api
   
   # Works with any resource including CRDs
   kubectl eks mget ec2nodeclass -A`,
@@ -69,8 +69,8 @@ Supports output formats:
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
-		nameContains, _ := cmd.Flags().GetString("name-contains")
-		nameNotContains, _ := cmd.Flags().GetString("name-not-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		namespace, _ := cmd.Flags().GetString("namespace")
@@ -586,8 +586,8 @@ func init() {
 	mGetCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	mGetCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	mGetCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	mGetCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	mGetCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	mGetCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	mGetCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	mGetCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	mGetCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	mGetCmd.Flags().StringP("namespace", "n", "", "Kubernetes namespace")

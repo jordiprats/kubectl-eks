@@ -22,13 +22,13 @@ inventory and tracking purposes.`,
   kubectl eks karpenter ami
 
   # Show AMI usage across clusters matching filter
-  kubectl eks karpenter ami --name-contains prod`,
+  kubectl eks karpenter ami --cluster-contains prod`,
 	Run: func(cmd *cobra.Command, args []string) {
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
-		nameContains, _ := cmd.Flags().GetString("name-contains")
-		nameNotContains, _ := cmd.Flags().GetString("name-not-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
@@ -99,8 +99,8 @@ func init() {
 	karpenterAMICmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	karpenterAMICmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	karpenterAMICmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterAMICmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	karpenterAMICmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	karpenterAMICmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	karpenterAMICmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	karpenterAMICmd.Flags().StringP("region", "r", "", "AWS region to use")
 	karpenterAMICmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 

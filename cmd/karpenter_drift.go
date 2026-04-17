@@ -22,13 +22,13 @@ due to configuration changes, AMI updates, or other factors.`,
   kubectl eks karpenter drift
 
   # List drifted resources across clusters matching filter
-  kubectl eks karpenter drift --name-contains prod`,
+  kubectl eks karpenter drift --cluster-contains prod`,
 	Run: func(cmd *cobra.Command, args []string) {
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
-		nameContains, _ := cmd.Flags().GetString("name-contains")
-		nameNotContains, _ := cmd.Flags().GetString("name-not-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
@@ -99,8 +99,8 @@ func init() {
 	karpenterDriftCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	karpenterDriftCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	karpenterDriftCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterDriftCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	karpenterDriftCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	karpenterDriftCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	karpenterDriftCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	karpenterDriftCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	karpenterDriftCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 

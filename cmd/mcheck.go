@@ -41,7 +41,7 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
   kubectl eks mcheck --all
 
   # Filter clusters
-  kubectl eks mcheck --name-contains prod
+  kubectl eks mcheck --cluster-contains prod
 
   # Check specific resource types
   kubectl eks mcheck --pods --deployments
@@ -52,8 +52,8 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
-		nameContains, _ := cmd.Flags().GetString("name-contains")
-		nameNotContains, _ := cmd.Flags().GetString("name-not-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		namespace, _ := cmd.Flags().GetString("namespace")
@@ -507,8 +507,8 @@ func init() {
 	mCheckCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	mCheckCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	mCheckCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	mCheckCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	mCheckCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	mCheckCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	mCheckCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	mCheckCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	mCheckCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	mCheckCmd.Flags().StringP("namespace", "n", "", "Kubernetes namespace (default: all namespaces)")

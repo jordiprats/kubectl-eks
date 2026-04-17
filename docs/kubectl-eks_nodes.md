@@ -27,7 +27,7 @@ kubectl-eks nodes [flags]
 	kubectl eks nodes -o wide
 
   # List nodes across clusters matching filter
-  kubectl eks nodes --name-contains prod
+  kubectl eks nodes --cluster-contains prod
 
   # List nodes for specific profile
   kubectl eks nodes --profile my-aws-profile
@@ -39,15 +39,15 @@ kubectl-eks nodes [flags]
 ### Options
 
 ```
-  -h, --help                       help for nodes
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -o, --output string              Output format: wide
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Do not use cached data, refresh from AWS
-  -r, --region string              AWS region to use
-  -v, --version string             Filter by EKS version
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for nodes
+  -o, --output string                 Output format: wide
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

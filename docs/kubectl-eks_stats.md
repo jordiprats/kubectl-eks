@@ -23,14 +23,14 @@ kubectl-eks stats [flags]
 ### Options
 
 ```
-  -h, --help                       help for stats
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Do not use cached data, refresh from AWS
-  -r, --region string              AWS region to use
-  -v, --version string             Filter by EKS version
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for stats
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

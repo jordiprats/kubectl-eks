@@ -20,20 +20,20 @@ kubectl-eks karpenter ami [flags]
   kubectl eks karpenter ami
 
   # Show AMI usage across clusters matching filter
-  kubectl eks karpenter ami --name-contains prod
+  kubectl eks karpenter ami --cluster-contains prod
 ```
 
 ### Options
 
 ```
-  -h, --help                       help for ami
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Do not use cached data, refresh from AWS
-  -r, --region string              AWS region to use
-  -v, --version string             Filter by EKS version
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for ami
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

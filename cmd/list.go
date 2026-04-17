@@ -25,7 +25,7 @@ You can filter by cluster name, region, version, or AWS profile.`,
   kubectl eks list
   
   # Filter by name
-  kubectl eks list --name-contains dev
+  kubectl eks list --cluster-contains dev
   
   # Filter by region
   kubectl eks list --region us-east-1
@@ -51,12 +51,12 @@ You can filter by cluster name, region, version, or AWS profile.`,
 			profile_contains = ""
 		}
 
-		name_contains, err := cmd.Flags().GetString("name-contains")
+		name_contains, err := cmd.Flags().GetString("cluster-contains")
 		if err != nil {
 			name_contains = ""
 		}
 
-		name_not_contains, err := cmd.Flags().GetString("name-not-contains")
+		name_not_contains, err := cmd.Flags().GetString("cluster-not-contains")
 		if err != nil {
 			name_not_contains = ""
 		}
@@ -255,8 +255,8 @@ func init() {
 	listCmd.Flags().BoolP("refresh", "u", false, "Refresh data from AWS")
 	listCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	listCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	listCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	listCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	listCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	listCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	listCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	listCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	listCmd.Flags().BoolP("arn-only", "1", false, "Output only cluster ARNs, one per line")

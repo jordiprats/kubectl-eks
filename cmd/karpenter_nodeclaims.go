@@ -23,7 +23,7 @@ and associated NodePool for each NodeClaim.`,
   kubectl eks karpenter nodeclaims
 
   # List NodeClaims across clusters matching filter
-  kubectl eks karpenter nodeclaims --name-contains prod
+  kubectl eks karpenter nodeclaims --cluster-contains prod
 
   # List NodeClaims with wide output
   kubectl eks karpenter nodeclaims -o wide`,
@@ -31,8 +31,8 @@ and associated NodePool for each NodeClaim.`,
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
-		nameContains, _ := cmd.Flags().GetString("name-contains")
-		nameNotContains, _ := cmd.Flags().GetString("name-not-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
@@ -104,8 +104,8 @@ func init() {
 	karpenterNodeClaimsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	karpenterNodeClaimsCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	karpenterNodeClaimsCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterNodeClaimsCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	karpenterNodeClaimsCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	karpenterNodeClaimsCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	karpenterNodeClaimsCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	karpenterNodeClaimsCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	karpenterNodeClaimsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	karpenterNodeClaimsCmd.Flags().StringP("output", "o", "", "Output format: wide")

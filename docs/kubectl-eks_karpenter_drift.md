@@ -20,20 +20,20 @@ kubectl-eks karpenter drift [flags]
   kubectl eks karpenter drift
 
   # List drifted resources across clusters matching filter
-  kubectl eks karpenter drift --name-contains prod
+  kubectl eks karpenter drift --cluster-contains prod
 ```
 
 ### Options
 
 ```
-  -h, --help                       help for drift
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Do not use cached data, refresh from AWS
-  -r, --region string              AWS region to use
-  -v, --version string             Filter by EKS version
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for drift
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

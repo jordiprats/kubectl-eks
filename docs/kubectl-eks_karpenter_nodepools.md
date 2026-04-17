@@ -20,7 +20,7 @@ kubectl-eks karpenter nodepools [flags]
   kubectl eks karpenter nodepools
 
   # List NodePools across clusters matching filter
-  kubectl eks karpenter nodepools --name-contains prod
+  kubectl eks karpenter nodepools --cluster-contains prod
 
   # List NodePools with wide output
   kubectl eks karpenter nodepools -o wide
@@ -29,15 +29,15 @@ kubectl-eks karpenter nodepools [flags]
 ### Options
 
 ```
-  -h, --help                       help for nodepools
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -o, --output string              Output format: wide
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Do not use cached data, refresh from AWS
-  -r, --region string              AWS region to use
-  -v, --version string             Filter by EKS version
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for nodepools
+  -o, --output string                 Output format: wide
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

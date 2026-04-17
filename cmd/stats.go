@@ -37,12 +37,12 @@ multiple clusters matching your criteria.`,
 			profile_contains = ""
 		}
 
-		name_contains, err := cmd.Flags().GetString("name-contains")
+		name_contains, err := cmd.Flags().GetString("cluster-contains")
 		if err != nil {
 			name_contains = ""
 		}
 
-		name_not_contains, err := cmd.Flags().GetString("name-not-contains")
+		name_not_contains, err := cmd.Flags().GetString("cluster-not-contains")
 		if err != nil {
 			name_not_contains = ""
 		}
@@ -111,8 +111,8 @@ func init() {
 	statsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	statsCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	statsCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	statsCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	statsCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	statsCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	statsCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	statsCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	statsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 

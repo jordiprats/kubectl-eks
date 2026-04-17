@@ -18,7 +18,7 @@ kubectl-eks list [flags]
   kubectl eks list
   
   # Filter by name
-  kubectl eks list --name-contains dev
+  kubectl eks list --cluster-contains dev
   
   # Filter by region
   kubectl eks list --region us-east-1
@@ -33,16 +33,17 @@ kubectl-eks list [flags]
 ### Options
 
 ```
-  -1, --arn-only                   Output only cluster ARNs, one per line
-  -h, --help                       help for list
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -o, --output string              Output format: wide
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Refresh data from AWS
-  -r, --region string              AWS region to use
-  -v, --version string             Filter by EKS version
+  -1, --arn-only                      Output only cluster ARNs, one per line
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for list
+  -2, --name-only                     Output only cluster names, one per line
+  -o, --output string                 Output format: wide
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Refresh data from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

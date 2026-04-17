@@ -36,10 +36,10 @@ kubectl-eks mget [resource-type] [resource-name] [flags]
   kubectl eks mget deployments -o wide
   
   # Filter clusters and resources
-  kubectl eks mget pods --name-contains prod --resource-starts-with nginx
+  kubectl eks mget pods --cluster-contains prod --resource-starts-with nginx
 
   # Filter resources by name substring
-  kubectl eks mget pods --name-contains prod --resource-contains api
+  kubectl eks mget pods --cluster-contains prod --resource-contains api
   
   # Works with any resource including CRDs
   kubectl eks mget ec2nodeclass -A
@@ -49,9 +49,9 @@ kubectl-eks mget [resource-type] [resource-name] [flags]
 
 ```
   -A, --all-namespaces                Query all Kubernetes namespaces
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
   -h, --help                          help for mget
-  -c, --name-contains string          Cluster name contains string
-  -x, --name-not-contains string      Cluster name does not contain string
   -n, --namespace string              Kubernetes namespace
       --no-headers                    Don't print headers
   -o, --output string                 Output format: wide|json|yaml|jsonpath=...

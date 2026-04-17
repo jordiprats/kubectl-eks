@@ -33,7 +33,7 @@ kubectl-eks mcheck [flags]
   kubectl eks mcheck --all
 
   # Filter clusters
-  kubectl eks mcheck --name-contains prod
+  kubectl eks mcheck --cluster-contains prod
 
   # Check specific resource types
   kubectl eks mcheck --pods --deployments
@@ -45,23 +45,23 @@ kubectl-eks mcheck [flags]
 ### Options
 
 ```
-      --all                        Show all resources including healthy ones
-      --daemonsets                 Check only daemonsets
-      --deployments                Check only deployments
-  -h, --help                       help for mcheck
-  -c, --name-contains string       Cluster name contains string
-  -x, --name-not-contains string   Cluster name does not contain string
-  -n, --namespace string           Kubernetes namespace (default: all namespaces)
-      --no-headers                 Don't print headers
-      --pods                       Check only pods
-  -p, --profile string             AWS profile to use
-  -q, --profile-contains string    AWS profile contains string
-  -u, --refresh                    Do not use cached data, refresh from AWS
-  -r, --region string              AWS region to use
-      --replicasets                Check only replicasets
-      --statefulsets               Check only statefulsets
-      --summary                    Show health summary
-  -v, --version string             Filter by EKS version
+      --all                           Show all resources including healthy ones
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+      --daemonsets                    Check only daemonsets
+      --deployments                   Check only deployments
+  -h, --help                          help for mcheck
+  -n, --namespace string              Kubernetes namespace (default: all namespaces)
+      --no-headers                    Don't print headers
+      --pods                          Check only pods
+  -p, --profile string                AWS profile to use
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 AWS region to use
+      --replicasets                   Check only replicasets
+      --statefulsets                  Check only statefulsets
+      --summary                       Show health summary
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

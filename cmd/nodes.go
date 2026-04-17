@@ -31,7 +31,7 @@ Without filters, queries the current cluster context.`,
 	kubectl eks nodes -o wide
 
   # List nodes across clusters matching filter
-  kubectl eks nodes --name-contains prod
+  kubectl eks nodes --cluster-contains prod
 
   # List nodes for specific profile
   kubectl eks nodes --profile my-aws-profile
@@ -46,8 +46,8 @@ Without filters, queries the current cluster context.`,
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
-		nameContains, _ := cmd.Flags().GetString("name-contains")
-		nameNotContains, _ := cmd.Flags().GetString("name-not-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 
@@ -156,8 +156,8 @@ func init() {
 	nodesCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	nodesCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
 	nodesCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	nodesCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	nodesCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	nodesCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	nodesCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	nodesCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	nodesCmd.Flags().StringP("output", "o", "", "Output format: wide")

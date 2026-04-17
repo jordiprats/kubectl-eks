@@ -396,12 +396,12 @@ profile for authentication.`,
 			profileContains = ""
 		}
 
-		nameContains, err := cmd.Flags().GetString("name-contains")
+		nameContains, err := cmd.Flags().GetString("cluster-contains")
 		if err != nil {
 			nameContains = ""
 		}
 
-		nameNotContains, err := cmd.Flags().GetString("name-not-contains")
+		nameNotContains, err := cmd.Flags().GetString("cluster-not-contains")
 		if err != nil {
 			nameNotContains = ""
 		}
@@ -469,8 +469,8 @@ func init() {
 	useCmd.Flags().StringP("namespace", "n", "", "Set specific namespace for the context")
 	useCmd.Flags().StringP("profile", "p", "", "Set specific AWS profile for the context")
 	useCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	useCmd.Flags().StringP("name-contains", "c", "", "Cluster name contains string")
-	useCmd.Flags().StringP("name-not-contains", "x", "", "Cluster name does not contain string")
+	useCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
+	useCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
 	useCmd.Flags().StringP("region", "r", "", "AWS region to use")
 	useCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	useCmd.Flags().Bool("oldest", false, "When multiple clusters match, switch to the oldest cluster")
