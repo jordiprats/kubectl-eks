@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,6 +19,23 @@ func PrintGenericResults(results []data.ResourceResult, output string, noHeaders
 	if len(results) == 0 {
 		return
 	}
+
+	// Sort results by Profile, Region, ClusterName, Namespace, Name
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].Profile != results[j].Profile {
+			return results[i].Profile < results[j].Profile
+		}
+		if results[i].Region != results[j].Region {
+			return results[i].Region < results[j].Region
+		}
+		if results[i].ClusterName != results[j].ClusterName {
+			return results[i].ClusterName < results[j].ClusterName
+		}
+		if results[i].Namespace != results[j].Namespace {
+			return results[i].Namespace < results[j].Namespace
+		}
+		return results[i].Name < results[j].Name
+	})
 
 	// Handle JSON output
 	if output == "json" {
@@ -219,6 +237,20 @@ func PrintGenericResults(results []data.ResourceResult, output string, noHeaders
 }
 
 func printPriorityClassResults(results []data.ResourceResult, noHeaders bool) {
+	// Sort results by Profile, Region, ClusterName, Name
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].Profile != results[j].Profile {
+			return results[i].Profile < results[j].Profile
+		}
+		if results[i].Region != results[j].Region {
+			return results[i].Region < results[j].Region
+		}
+		if results[i].ClusterName != results[j].ClusterName {
+			return results[i].ClusterName < results[j].ClusterName
+		}
+		return results[i].Name < results[j].Name
+	})
+
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
 	table := &v1.Table{

@@ -38,26 +38,75 @@ func PrintMultiGetPods(noHeaders bool, podList ...k8s.K8SClusterPodList) {
 		},
 	}
 
-	// Populate rows with data from the variadic K8Sstats
+	// Flatten into a sortable structure
+	type podRow struct {
+		profile     string
+		region      string
+		clusterName string
+		arn         string
+		version     string
+		namespace   string
+		name        string
+		ready       string
+		status      string
+		restarts    int
+		age         time.Time
+	}
+
+	var rows []podRow
 	for _, clusterList := range podList {
 		for _, pod := range clusterList.Pods {
-			humanAge := duration.ShortHumanDuration(time.Since(pod.Age.Time))
-			table.Rows = append(table.Rows, v1.TableRow{
-				Cells: []interface{}{
-					clusterList.AWSProfile,
-					clusterList.Region,
-					clusterList.ClusterName,
-					clusterList.Arn,
-					clusterList.Version,
-					pod.Namespace,
-					pod.Name,
-					pod.Ready,
-					pod.Status,
-					pod.Restarts,
-					humanAge,
-				},
+			rows = append(rows, podRow{
+				profile:     clusterList.AWSProfile,
+				region:      clusterList.Region,
+				clusterName: clusterList.ClusterName,
+				arn:         clusterList.Arn,
+				version:     clusterList.Version,
+				namespace:   pod.Namespace,
+				name:        pod.Name,
+				ready:       pod.Ready,
+				status:      pod.Status,
+				restarts:    pod.Restarts,
+				age:         pod.Age.Time,
 			})
 		}
+	}
+
+	// Sort by Profile, Region, ClusterName, Namespace, Name
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].profile != rows[j].profile {
+			return rows[i].profile < rows[j].profile
+		}
+		if rows[i].region != rows[j].region {
+			return rows[i].region < rows[j].region
+		}
+		if rows[i].clusterName != rows[j].clusterName {
+			return rows[i].clusterName < rows[j].clusterName
+		}
+		if rows[i].namespace != rows[j].namespace {
+			return rows[i].namespace < rows[j].namespace
+		}
+		return rows[i].name < rows[j].name
+	})
+
+	// Populate table rows
+	for _, r := range rows {
+		humanAge := duration.ShortHumanDuration(time.Since(r.age))
+		table.Rows = append(table.Rows, v1.TableRow{
+			Cells: []interface{}{
+				r.profile,
+				r.region,
+				r.clusterName,
+				r.arn,
+				r.version,
+				r.namespace,
+				r.name,
+				r.ready,
+				r.status,
+				r.restarts,
+				humanAge,
+			},
+		})
 	}
 
 	// Print the table
@@ -286,6 +335,23 @@ func formatClusterMemoryQuantityGi(value string) string {
 
 // PrintJsonPathResults prints the results in a kubectl-style table format
 func PrintJsonPathResults(noHeaders bool, results []data.JsonPathResult) {
+	// Sort results by Profile, Region, ClusterName, Namespace, Name
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].Profile != results[j].Profile {
+			return results[i].Profile < results[j].Profile
+		}
+		if results[i].Region != results[j].Region {
+			return results[i].Region < results[j].Region
+		}
+		if results[i].ClusterName != results[j].ClusterName {
+			return results[i].ClusterName < results[j].ClusterName
+		}
+		if results[i].Namespace != results[j].Namespace {
+			return results[i].Namespace < results[j].Namespace
+		}
+		return results[i].Resource < results[j].Resource
+	})
+
 	// Create a table printer
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
