@@ -173,9 +173,15 @@ func PrintClusters(noHeaders bool, clusterInfos ...data.ClusterInfo) {
 
 // PrintClustersWithOptions prints cluster info with optional wide columns.
 func PrintClustersWithOptions(noHeaders bool, wide bool, clusterInfos ...data.ClusterInfo) {
-	// Sort the clusterInfos by ClusterName (you can customize the field for sorting)
+	// Sort by Profile, Region, ClusterName
 	sort.Slice(clusterInfos, func(i, j int) bool {
-		return clusterInfos[i].AWSProfile < clusterInfos[j].AWSProfile
+		if clusterInfos[i].AWSProfile != clusterInfos[j].AWSProfile {
+			return clusterInfos[i].AWSProfile < clusterInfos[j].AWSProfile
+		}
+		if clusterInfos[i].Region != clusterInfos[j].Region {
+			return clusterInfos[i].Region < clusterInfos[j].Region
+		}
+		return clusterInfos[i].ClusterName < clusterInfos[j].ClusterName
 	})
 
 	// Create a table printer

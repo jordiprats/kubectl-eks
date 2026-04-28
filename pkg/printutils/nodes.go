@@ -3,6 +3,7 @@ package printutils
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
@@ -15,6 +16,20 @@ func PrintMultiClusterNodes(noHeaders bool, wide bool, nodes []data.ClusterNodeI
 	if len(nodes) == 0 {
 		return
 	}
+
+	// Sort by Profile, Region, ClusterName, Name
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Profile != nodes[j].Profile {
+			return nodes[i].Profile < nodes[j].Profile
+		}
+		if nodes[i].Region != nodes[j].Region {
+			return nodes[i].Region < nodes[j].Region
+		}
+		if nodes[i].ClusterName != nodes[j].ClusterName {
+			return nodes[i].ClusterName < nodes[j].ClusterName
+		}
+		return nodes[i].Node.Name < nodes[j].Node.Name
+	})
 
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
