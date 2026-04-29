@@ -91,6 +91,9 @@ kubectl eks cache show
 # Get resources from multiple clusters
 kubectl eks mget pods -q prod
 
+# Filter resources by field value
+kubectl eks mget pods --filter status.phase=Running
+
 # View cluster statistics
 kubectl eks stats
 

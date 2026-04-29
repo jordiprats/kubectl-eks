@@ -40,6 +40,11 @@ kubectl-eks mget [resource-type] [resource-name] [flags]
 
   # Filter resources by name substring
   kubectl eks mget pods --cluster-contains prod --resource-contains api
+
+  # Filter by any field value (dot-notation path into the resource)
+  kubectl eks mget pods --filter status.phase=Running
+  kubectl eks mget deployments --filter status.readyReplicas=3
+  kubectl eks mget nodes --filter status.nodeInfo.kubeletVersion=v1.29.0
   
   # Works with any resource including CRDs
   kubectl eks mget ec2nodeclass -A
@@ -51,6 +56,7 @@ kubectl-eks mget [resource-type] [resource-name] [flags]
   -A, --all-namespaces                Query all Kubernetes namespaces
   -c, --cluster-contains string       Cluster name contains string
   -x, --cluster-not-contains string   Cluster name does not contain string
+  -f, --filter string                 Filter resources by field value (e.g., status.phase=Running)
   -h, --help                          help for mget
   -n, --namespace string              Kubernetes namespace
       --no-headers                    Don't print headers
