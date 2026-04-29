@@ -93,3 +93,41 @@ func TestFormatValue(t *testing.T) {
 		})
 	}
 }
+
+func TestMatchesFilter(t *testing.T) {
+	obj := map[string]interface{}{
+		"status": map[string]interface{}{
+			"phase": "Running",
+			"nodeInfo": map[string]interface{}{
+				"kubeletVersion": "v1.29.0",
+			},
+			"readyReplicas": int64(3),
+		},
+		"metadata": map[string]interface{}{
+			"name":      "my-pod",
+			"namespace": "default",
+		},
+	}
+
+	tests := []struct {
+		name     string
+		filter   string
+		expected bool
+	}{
+		{"empty filter matches", "", true},
+		{"top-level nested match", "status.phase=Running", true},
+		{"top-level nested no match", "status.phase=Pending", false},
+		{"deep nested match", "status.nodeInfo.kubeletVersion=v1.29.0", true},
+		{"numeric value match", "status.readyReplicas=3", true},
+		{"metadata match", "metadata.name=my-pod", true},
+		{"nonexistent field", "status.missing=value", false},
+		{"invalid path", "nonexistent.deep.path=x", false},
+		{"no equals sign", "invalidfilter", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, matchesFilter(obj, tt.filter))
+		})
+	}
+}
