@@ -4,16 +4,63 @@ Get AWS profile
 
 ### Synopsis
 
-Get the AWS profile name for the current cluster (or specified cluster ARN)
+Get the AWS profile name for the current cluster (or specified cluster ARN).
+
+When no arguments or filters are provided, returns the AWS profile for the
+current kubeconfig context.
+
+You can specify a cluster by partial name, ARN, or use filters to narrow down
+the cluster list. When multiple clusters match, use --oldest or --newest to
+pick one.
 
 ```
-kubectl-eks aws-profile [flags]
+kubectl-eks aws-profile [cluster-name-or-arn] [flags]
+```
+
+### Examples
+
+```
+  # Get profile for the current cluster
+  kubectl eks aws-profile
+
+  # Get profile for a cluster by partial name
+  kubectl eks aws-profile my-cluster
+
+  # Get profile for a cluster by ARN
+  kubectl eks aws-profile arn:aws:eks:us-east-1:123456789012:cluster/my-cluster
+
+  # Get profile filtering by cluster name substring
+  kubectl eks aws-profile --cluster-contains dev
+
+  # Get profile filtering by region
+  kubectl eks aws-profile --region us-east-1
+
+  # Get profile filtering by version and region
+  kubectl eks aws-profile --version 1.29 --region eu-west-1
+
+  # Get profile filtering by AWS profile name substring
+  kubectl eks aws-profile --profile-contains prod
+
+  # When multiple clusters match, pick the oldest or newest
+  kubectl eks aws-profile --cluster-contains dev --oldest
+  kubectl eks aws-profile --cluster-contains dev --newest
+
+  # Exclude clusters by name
+  kubectl eks aws-profile --cluster-contains dev --cluster-not-contains staging
 ```
 
 ### Options
 
 ```
-  -h, --help   help for aws-profile
+  -c, --cluster-contains string       Cluster name contains string
+  -x, --cluster-not-contains string   Cluster name does not contain string
+  -h, --help                          help for aws-profile
+      --newest                        When multiple clusters match, use the newest cluster
+      --oldest                        When multiple clusters match, use the oldest cluster
+  -q, --profile-contains string       AWS profile contains string
+  -u, --refresh                       Refresh data from AWS
+  -r, --region string                 AWS region to use
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands
