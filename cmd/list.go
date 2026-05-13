@@ -23,18 +23,39 @@ var listCmd = &cobra.Command{
 You can filter by cluster name, region, version, or AWS profile.`,
 	Example: `  # List all clusters
   kubectl eks list
-  
-  # Filter by name
+
+  # Filter by cluster name substring
   kubectl eks list --cluster-contains dev
-  
+
+  # Exclude clusters by name substring
+  kubectl eks list --cluster-not-contains staging
+
   # Filter by region
   kubectl eks list --region us-east-1
-  
-  # Filter by version and profile
-  kubectl eks list --version 1.29 --profile profile-1
-  
-  # List only cluster ARNs
-  kubectl eks list -1`,
+
+  # Filter by EKS version
+  kubectl eks list --version 1.29
+
+  # Filter by exact AWS profile name
+  kubectl eks list --profile my-profile
+
+  # Filter by AWS profile name substring
+  kubectl eks list --profile-contains prod
+
+  # Combine multiple filters
+  kubectl eks list --cluster-contains dev --region us-east-1 --version 1.29
+
+  # List only cluster ARNs (one per line)
+  kubectl eks list --arn-only
+
+  # List only cluster names (one per line)
+  kubectl eks list --name-only
+
+  # Wide output with node stats
+  kubectl eks list -o wide
+
+  # Refresh cached data from AWS
+  kubectl eks list --refresh`,
 	Run: func(cmd *cobra.Command, args []string) {
 		refresh, err := cmd.Flags().GetBool("refresh")
 		if err != nil {
