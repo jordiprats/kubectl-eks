@@ -70,6 +70,7 @@ kubectl-eks [flags]
 * [kubectl-eks kube2iam](kubectl-eks_kube2iam.md)	 - List pods with kube2iam annotations and their IAM roles
 * [kubectl-eks list](kubectl-eks_list.md)	 - List all EKS clusters in your AWS account
 * [kubectl-eks mcheck](kubectl-eks_mcheck.md)	 - Check health status of resources across multiple clusters
+* [kubectl-eks mcp-server](kubectl-eks_mcp-server.md)	 - Start an MCP (Model Context Protocol) server over stdio
 * [kubectl-eks mget](kubectl-eks_mget.md)	 - Get resources from multiple clusters
 * [kubectl-eks nodegroups](kubectl-eks_nodegroups.md)	 - List EKS managed node groups
 * [kubectl-eks nodes](kubectl-eks_nodes.md)	 - List Kubernetes nodes with EC2 instance details

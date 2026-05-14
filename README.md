@@ -70,6 +70,82 @@ Full command reference documentation is available in the [docs/](docs/) director
 
 Browse all commands and their options in the [docs](docs/) folder.
 
+## MCP Server (AI Integration)
+
+kubectl-eks includes a built-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that exposes all functionality as tools for AI assistants like Claude Desktop, VS Code Copilot, Cursor, and others.
+
+### Usage
+
+```bash
+# Start the MCP server (used by AI clients, not typically run manually)
+kubectl-eks mcp-server
+```
+
+### Client Configuration
+
+**Claude Desktop** (`~/.claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "kubectl-eks": {
+      "command": "kubectl-eks",
+      "args": ["mcp-server"]
+    }
+  }
+}
+```
+
+**VS Code** (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "kubectl-eks": {
+      "command": "kubectl-eks",
+      "args": ["mcp-server"]
+    }
+  }
+}
+```
+
+**Cursor** (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "kubectl-eks": {
+      "command": "kubectl-eks",
+      "args": ["mcp-server"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_clusters` | List EKS clusters across accounts/regions with optional filters |
+| `get_current_cluster` | Show current cluster context (name, region, profile, version) |
+| `use_cluster` | Switch kubectl context to a different EKS cluster |
+| `get_nodes` | List Kubernetes nodes with instance details, CPU/memory, pressure |
+| `get_nodegroups` | List EKS managed node groups with scaling config |
+| `get_events` | Show Kubernetes events (scheduling, errors, warnings) |
+| `get_insights` | Show EKS insights, deprecation warnings, upgrade blockers |
+| `whoami` | Show current AWS IAM identity and Kubernetes user mapping |
+| `get_stats` | Show cluster statistics (node/pod counts, health) |
+| `get_karpenter_nodepools` | List Karpenter NodePools with config and limits |
+| `get_karpenter_nodeclaims` | List active Karpenter NodeClaims |
+| `get_karpenter_drift` | List drifted Karpenter nodes/NodeClaims |
+| `get_pod_identity` | List EKS Pod Identity associations |
+| `get_irsa` | List IRSA service accounts and IAM role ARNs |
+| `get_updates` | Check for available Kubernetes/add-on updates |
+| `get_fargate_profiles` | List Fargate profiles and selectors |
+| `get_quotas` | Show ResourceQuota usage per namespace |
+
+Most multi-cluster tools accept optional filter parameters: `profile`, `profile_contains`, `cluster_contains`, `cluster_not_contains`, `region`, and `version`.
+
 ## <a name='QuickStart'></a>Quick Start
 
 ```bash
