@@ -26,13 +26,13 @@ kubectl-eks karpenter ami [flags]
 ### Options
 
 ```
-  -c, --cluster-contains string       Cluster name contains string
-  -x, --cluster-not-contains string   Cluster name does not contain string
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for ami
-  -p, --profile string                AWS profile to use
-  -q, --profile-contains string       AWS profile contains string
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
   -u, --refresh                       Do not use cached data, refresh from AWS
-  -r, --region string                 AWS region to use
+  -r, --region string                 Filter by AWS region
   -v, --version string                Filter by EKS version
 ```
 

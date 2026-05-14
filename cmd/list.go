@@ -274,11 +274,11 @@ func loadClusters(profile, region string) {
 
 func init() {
 	listCmd.Flags().BoolP("refresh", "u", false, "Refresh data from AWS")
-	listCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	listCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	listCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	listCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	listCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	listCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	listCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	listCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	listCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	listCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	listCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	listCmd.Flags().BoolP("arn-only", "1", false, "Output only cluster ARNs, one per line")
 	listCmd.Flags().BoolP("name-only", "2", false, "Output only cluster names, one per line")

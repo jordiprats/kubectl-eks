@@ -97,11 +97,11 @@ inventory and tracking purposes.`,
 
 func init() {
 	karpenterAMICmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	karpenterAMICmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	karpenterAMICmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterAMICmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	karpenterAMICmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	karpenterAMICmd.Flags().StringP("region", "r", "", "AWS region to use")
+	karpenterAMICmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	karpenterAMICmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	karpenterAMICmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	karpenterAMICmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	karpenterAMICmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterAMICmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 
 	karpenterCmd.AddCommand(karpenterAMICmd)

@@ -505,11 +505,11 @@ func summarizeResults(cluster data.ClusterInfo, results []data.HealthCheckResult
 
 func init() {
 	mCheckCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	mCheckCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	mCheckCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	mCheckCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	mCheckCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	mCheckCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	mCheckCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	mCheckCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	mCheckCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	mCheckCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	mCheckCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	mCheckCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	mCheckCmd.Flags().StringP("namespace", "n", "", "Kubernetes namespace (default: all namespaces)")
 	mCheckCmd.Flags().Bool("all", false, "Show all resources including healthy ones")

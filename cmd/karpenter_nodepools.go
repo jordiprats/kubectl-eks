@@ -102,11 +102,11 @@ and associated NodeClass information.`,
 
 func init() {
 	karpenterNodePoolsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	karpenterNodePoolsCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	karpenterNodePoolsCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterNodePoolsCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	karpenterNodePoolsCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	karpenterNodePoolsCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	karpenterNodePoolsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	karpenterNodePoolsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	karpenterNodePoolsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	karpenterNodePoolsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	karpenterNodePoolsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterNodePoolsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	karpenterNodePoolsCmd.Flags().StringP("output", "o", "", "Output format: wide")
 

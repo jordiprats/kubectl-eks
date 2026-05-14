@@ -630,11 +630,11 @@ func formatValue(val interface{}) string {
 
 func init() {
 	mGetCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	mGetCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	mGetCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	mGetCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	mGetCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	mGetCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	mGetCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	mGetCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	mGetCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	mGetCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	mGetCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	mGetCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	mGetCmd.Flags().StringP("namespace", "n", "", "Kubernetes namespace")
 	mGetCmd.Flags().BoolP("all-namespaces", "A", false, "Query all Kubernetes namespaces")

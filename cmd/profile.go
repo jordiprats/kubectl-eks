@@ -126,10 +126,10 @@ pick one.`,
 
 func init() {
 	profileCmd.Flags().BoolP("refresh", "u", false, "Refresh data from AWS")
-	profileCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	profileCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	profileCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	profileCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	profileCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	profileCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	profileCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	profileCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	profileCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	profileCmd.Flags().Bool("oldest", false, "When multiple clusters match, use the oldest cluster")
 	profileCmd.Flags().Bool("newest", false, "When multiple clusters match, use the newest cluster")

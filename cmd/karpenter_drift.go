@@ -97,11 +97,11 @@ due to configuration changes, AMI updates, or other factors.`,
 
 func init() {
 	karpenterDriftCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	karpenterDriftCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	karpenterDriftCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterDriftCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	karpenterDriftCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	karpenterDriftCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	karpenterDriftCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	karpenterDriftCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	karpenterDriftCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	karpenterDriftCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	karpenterDriftCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterDriftCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 
 	karpenterCmd.AddCommand(karpenterDriftCmd)

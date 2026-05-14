@@ -28,16 +28,16 @@ kubectl-eks use [cluster-name-or-arn] [flags]
 
 ```
       --bash-comment                  Prefix output with '# ' so it looks like a bash comment
-  -c, --cluster-contains string       Cluster name contains string
-  -x, --cluster-not-contains string   Cluster name does not contain string
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for use
   -n, --namespace string              Set specific namespace for the context
       --newest                        When multiple clusters match, switch to the newest cluster
       --oldest                        When multiple clusters match, switch to the oldest cluster
   -p, --profile string                Set specific AWS profile for the context
-  -q, --profile-contains string       AWS profile contains string
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
   -u, --refresh                       Refresh data from AWS
-  -r, --region string                 AWS region to use
+  -r, --region string                 Filter by AWS region
   -v, --version string                Filter by EKS version
 ```
 

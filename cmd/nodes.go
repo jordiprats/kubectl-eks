@@ -154,11 +154,11 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 
 func init() {
 	nodesCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	nodesCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	nodesCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	nodesCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	nodesCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	nodesCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	nodesCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	nodesCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	nodesCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	nodesCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	nodesCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	nodesCmd.Flags().StringP("output", "o", "", "Output format: wide")
 

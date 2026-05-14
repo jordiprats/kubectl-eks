@@ -109,11 +109,11 @@ multiple clusters matching your criteria.`,
 
 func init() {
 	statsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	statsCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	statsCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	statsCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	statsCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	statsCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	statsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	statsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	statsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	statsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	statsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	statsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 
 	rootCmd.AddCommand(statsCmd)

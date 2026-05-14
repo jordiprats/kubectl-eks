@@ -102,11 +102,11 @@ and associated NodePool for each NodeClaim.`,
 
 func init() {
 	karpenterNodeClaimsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
-	karpenterNodeClaimsCmd.Flags().StringP("profile", "p", "", "AWS profile to use")
-	karpenterNodeClaimsCmd.Flags().StringP("profile-contains", "q", "", "AWS profile contains string")
-	karpenterNodeClaimsCmd.Flags().StringP("cluster-contains", "c", "", "Cluster name contains string")
-	karpenterNodeClaimsCmd.Flags().StringP("cluster-not-contains", "x", "", "Cluster name does not contain string")
-	karpenterNodeClaimsCmd.Flags().StringP("region", "r", "", "AWS region to use")
+	karpenterNodeClaimsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	karpenterNodeClaimsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	karpenterNodeClaimsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	karpenterNodeClaimsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	karpenterNodeClaimsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterNodeClaimsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	karpenterNodeClaimsCmd.Flags().StringP("output", "o", "", "Output format: wide")
 
