@@ -66,6 +66,7 @@ Full command reference documentation is available in the [docs/](docs/) director
 - [kubectl eks fargate-profiles](docs/kubectl-eks_fargate-profiles.md) - List Fargate profiles and their selectors
 - [kubectl eks karpenter](docs/kubectl-eks_karpenter.md) - Karpenter resource management commands
 - [kubectl eks aws-profile](docs/kubectl-eks_aws-profile.md) - Get AWS profile
+- [kubectl eks mcp-server](docs/kubectl-eks_mcp-server.md) - Start an MCP server for AI assistant integration
 - [kubectl eks completion](docs/kubectl-eks_completion.md) - Generate shell autocompletion
 
 Browse all commands and their options in the [docs](docs/) folder.
