@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.8
 	github.com/aws/aws-sdk-go-v2/config v1.32.19
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.71.11
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.303.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.304.1
 	github.com/aws/aws-sdk-go-v2/service/eks v1.84.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.2
 	github.com/mark3labs/mcp-go v0.54.0
