@@ -13,7 +13,6 @@ import (
 	"github.com/jordiprats/kubectl-eks/pkg/sts"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var listCmd = &cobra.Command{
@@ -288,32 +287,10 @@ func init() {
 }
 
 func enrichClusterNodeStats(clusterList []data.ClusterInfo) []data.ClusterInfo {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	config, err := loadingRules.Load()
-	if err != nil {
-		return clusterList
-	}
-
-	previousContext := config.CurrentContext
-	defer func() {
-		config.CurrentContext = previousContext
-		_ = clientcmd.ModifyConfig(loadingRules, *config, true)
-	}()
-
 	for i := range clusterList {
 		cluster := &clusterList[i]
 
-		err := eks.UpdateKubeConfig(cluster.AWSProfile, cluster.Region, cluster.ClusterName, "")
-		if err != nil {
-			continue
-		}
-
-		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			clientcmd.NewDefaultClientConfigLoadingRules(),
-			&clientcmd.ConfigOverrides{},
-		)
-
-		restConfig, err := clientConfig.ClientConfig()
+		restConfig, err := GetRestConfigForCluster(*cluster)
 		if err != nil {
 			continue
 		}

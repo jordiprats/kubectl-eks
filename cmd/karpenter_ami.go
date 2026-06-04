@@ -4,11 +4,9 @@ import (
 	"log"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/karpenter"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var karpenterAMICmd = &cobra.Command{
@@ -59,28 +57,16 @@ inventory and tracking purposes.`,
 			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		// Save and restore context
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-		defer func() {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}()
-
 		allAMIUsage := []data.KarpenterAMIUsageInfo{}
 
 		for _, clusterInfo := range clusterList {
-			err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to update kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
 				continue
 			}
 
-			amiUsage, err := karpenter.GetAMIUsage(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Version)
+			amiUsage, err := karpenter.GetAMIUsageWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Version)
 			if err != nil {
 				log.Printf("Warning: Failed to get AMI usage from cluster %s: %v", clusterInfo.ClusterName, err)
 				continue

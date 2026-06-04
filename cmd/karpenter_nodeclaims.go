@@ -4,11 +4,9 @@ import (
 	"log"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/karpenter"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var karpenterNodeClaimsCmd = &cobra.Command{
@@ -64,28 +62,16 @@ and associated NodePool for each NodeClaim.`,
 			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		// Save and restore context
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-		defer func() {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}()
-
 		allNodeClaims := []data.KarpenterNodeClaimInfo{}
 
 		for _, clusterInfo := range clusterList {
-			err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to update kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
 				continue
 			}
 
-			nodeClaims, err := karpenter.GetNodeClaims(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+			nodeClaims, err := karpenter.GetNodeClaimsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
 			if err != nil {
 				log.Printf("Warning: Failed to get NodeClaims from cluster %s: %v", clusterInfo.ClusterName, err)
 				continue

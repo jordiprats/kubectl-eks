@@ -3,11 +3,9 @@ package cmd
 import (
 	"log"
 
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var statsCmd = &cobra.Command{
@@ -62,38 +60,20 @@ multiple clusters matching your criteria.`,
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
 
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-
 		// current k8s context
 		k8sStatsList := []k8s.K8Sstats{}
 		for _, clusterInfo := range clusterList {
-			err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
 				continue
 			}
 
-			stats, err := k8s.GetK8sStats(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version)
+			stats, err := k8s.GetK8sStatsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version)
 			if err != nil {
 				continue
 			} else {
 				k8sStatsList = append(k8sStatsList, *stats)
 			}
-		}
-
-		// Restore the previous context
-		loadingRules = clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err = loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		config.CurrentContext = previousContext
-		if err := clientcmd.ModifyConfig(loadingRules, *config, true); err != nil {
-			log.Fatalf("Error updating kubeconfig: %v", err)
 		}
 
 		noHeaders, err := cmd.Flags().GetBool("no-headers")

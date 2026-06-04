@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"regexp"
+	"log"
 	"strings"
 
+	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
@@ -24,86 +24,81 @@ EKS Insights help identify:
   - Configuration issues
 
 Insights are categorized by severity and include remediation guidance to
-help maintain cluster health and security.`,
+help maintain cluster health and security.
+
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		clusterArn := ""
+		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		refresh, _ := cmd.Flags().GetBool("refresh")
 
-		if len(args) != 1 {
-			// Load Kubernetes configuration
-			config, err := KubernetesConfigFlags.ToRawKubeConfigLoader().RawConfig()
+		// Get filter flags
+		profile, _ := cmd.Flags().GetString("profile")
+		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
+		region, _ := cmd.Flags().GetString("region")
+		version, _ := cmd.Flags().GetString("version")
+
+		// Check if any filter is specified
+		hasFilters := profile != "" || profileContains != "" || nameContains != "" ||
+			nameNotContains != "" || region != "" || version != ""
+
+		var clusterList []data.ClusterInfo
+
+		if hasFilters {
+			loadCacheFromDisk()
+			if CachedData == nil {
+				CachedData = &data.KubeCtlEksCache{
+					ClusterByARN: make(map[string]data.ClusterInfo),
+					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+				}
+			}
+			if CachedData.ClusterList == nil {
+				CachedData.ClusterList = make(map[string]map[string][]data.ClusterInfo)
+			}
+
+			var err error
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %v\n", err.Error())
-				os.Exit(1)
+				log.Fatalf("Error loading cluster list: %v", err)
 			}
-
-			// Get current context
-			currentContext := config.CurrentContext
-			// fmt.Printf("Current context: %s\n", currentContext)
-
-			// Retrieve cluster information
-			contextDetails, exists := config.Contexts[currentContext]
-			if !exists {
-				fmt.Fprintf(os.Stderr, "Context '%s' not found in kubeconfig\n", currentContext)
-				os.Exit(1)
-			}
-
-			clusterArn = contextDetails.Cluster
 		} else {
-			clusterArn = strings.TrimSpace(args[0])
-		}
-
-		// check if it is an ARN
-		arnRegex := `^arn:aws:eks:([a-z0-9-]+):(\d{12}):cluster/([a-zA-Z0-9-]+)$`
-		re := regexp.MustCompile(arnRegex)
-
-		matches := re.FindStringSubmatch(clusterArn)
-		if matches == nil {
-			if len(args) != 1 {
-				fmt.Printf("Current cluster is not an EKS cluster\n")
-			} else {
-				fmt.Printf("Invalid cluster ARN: %q\n", clusterArn)
+			clusterInfo, err := GetCurrentClusterInfo()
+			if err != nil {
+				log.Fatalf("Error getting current cluster info: %v", err)
 			}
-			os.Exit(1)
+			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		clusterInfo := loadClusterByArn(clusterArn)
-
-		// clusterInfo := loadClusterByArn(clusterARN)
-		if clusterInfo == nil {
-			fmt.Println("Cluster not found")
+		if len(clusterList) == 0 {
+			fmt.Println("No clusters found matching the specified filters")
 			return
 		}
 
-		showID, err := cmd.Flags().GetString("show")
-		if err != nil {
-			showID = ""
-		} else {
-			showID = strings.TrimSpace(showID)
-		}
+		showID, _ := cmd.Flags().GetString("show")
+		showID = strings.TrimSpace(showID)
 
 		if showID == "" {
-			insightsList, err := eks.GetEKSInsights(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-
-			if err != nil {
-				fmt.Printf("Error getting insights: %s\n", err.Error())
-				return
+			allInsights := []data.EKSInsightInfo{}
+			for _, clusterInfo := range clusterList {
+				insightsList, err := eks.GetEKSInsights(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+				if err != nil {
+					fmt.Fprintf(log.Writer(), "Error getting insights for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
+					continue
+				}
+				allInsights = append(allInsights, insightsList...)
 			}
-
-			noHeaders, err := cmd.Flags().GetBool("no-headers")
-			if err != nil {
-				noHeaders = false
-			}
-
-			printutils.PrintInsights(noHeaders, insightsList...)
+			printutils.PrintInsights(noHeaders, allInsights...)
 		} else {
+			// --show only makes sense for a single cluster
+			clusterInfo := clusterList[0]
 			insightItem, err := eks.DescribeEKSInsight(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, showID)
-
 			if err != nil {
 				fmt.Printf("Error getting insight: %s\n", err.Error())
 				return
 			}
 
-			// fmt.Printf("ID: %s\n", insightItem.ID)
 			fmt.Printf("Category: %s\n", insightItem.Category)
 			fmt.Printf("Status: %s\n", insightItem.Status)
 			fmt.Printf("Description: %s\n", insightItem.Description)
@@ -134,11 +129,22 @@ help maintain cluster health and security.`,
 				fmt.Printf("No deprecation details found\n")
 			}
 		}
+
+		if hasFilters {
+			saveCacheToDisk()
+		}
 	},
 }
 
 func init() {
 	insightsCmd.Flags().String("show", "", "Show details for a specific ID")
+	insightsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
+	insightsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	insightsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	insightsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	insightsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	insightsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
+	insightsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 
 	rootCmd.AddCommand(insightsCmd)
 }

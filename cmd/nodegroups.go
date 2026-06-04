@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
-	"regexp"
-	"strings"
 
+	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/ec2"
 	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
@@ -22,90 +22,112 @@ Displays node group name, status, instance types, scaling configuration
 (min/max/desired size), AMI type, capacity type (On-Demand/Spot), and
 current Kubernetes version.
 
-Use this to audit node group configurations and identify scaling settings.`,
+Use this to audit node group configurations and identify scaling settings.
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.`,
+	Example: `  # List nodegroups for current cluster
+  kubectl eks nodegroups
+
+  # Filter by profile substring
+  kubectl eks nodegroups --profile-contains genprod
+
+  # Filter by cluster name substring
+  kubectl eks nodegroups --cluster-contains v2-b
+
+  # Exclude clusters by name substring
+  kubectl eks nodegroups --cluster-not-contains staging
+
+  # Filter by region
+  kubectl eks nodegroups --region us-west-2
+
+  # Combine filters
+  kubectl eks nodegroups -q genprod -c v2-b -x orch -r us-west-2`,
 	Run: func(cmd *cobra.Command, args []string) {
-		clusterArn := ""
+		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		refresh, _ := cmd.Flags().GetBool("refresh")
+		ami, _ := cmd.Flags().GetString("ami")
 
-		if len(args) != 1 {
-			// Load Kubernetes configuration
-			config, err := KubernetesConfigFlags.ToRawKubeConfigLoader().RawConfig()
+		// Get filter flags
+		profile, _ := cmd.Flags().GetString("profile")
+		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
+		region, _ := cmd.Flags().GetString("region")
+		version, _ := cmd.Flags().GetString("version")
+
+		// Check if any filter is specified
+		hasFilters := profile != "" || profileContains != "" || nameContains != "" ||
+			nameNotContains != "" || region != "" || version != ""
+
+		var clusterList []data.ClusterInfo
+
+		if hasFilters {
+			loadCacheFromDisk()
+			if CachedData == nil {
+				CachedData = &data.KubeCtlEksCache{
+					ClusterByARN: make(map[string]data.ClusterInfo),
+					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+				}
+			}
+			if CachedData.ClusterList == nil {
+				CachedData.ClusterList = make(map[string]map[string][]data.ClusterInfo)
+			}
+
+			var err error
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %v\n", err.Error())
-				os.Exit(1)
+				log.Fatalf("Error loading cluster list: %v", err)
 			}
-
-			// Get current context
-			currentContext := config.CurrentContext
-			// fmt.Printf("Current context: %s\n", currentContext)
-
-			// Retrieve cluster information
-			contextDetails, exists := config.Contexts[currentContext]
-			if !exists {
-				fmt.Fprintf(os.Stderr, "Context '%s' not found in kubeconfig\n", currentContext)
-				os.Exit(1)
-			}
-
-			clusterArn = contextDetails.Cluster
 		} else {
-			clusterArn = strings.TrimSpace(args[0])
-		}
-
-		// check if it is an ARN
-		arnRegex := `^arn:aws:eks:([a-z0-9-]+):(\d{12}):cluster/([a-zA-Z0-9-]+)$`
-		re := regexp.MustCompile(arnRegex)
-
-		matches := re.FindStringSubmatch(clusterArn)
-		if matches == nil {
-			if len(args) != 1 {
-				fmt.Printf("Current cluster is not an EKS cluster\n")
-			} else {
-				fmt.Printf("Invalid cluster ARN: %q\n", clusterArn)
+			clusterInfo, err := GetCurrentClusterInfo()
+			if err != nil {
+				log.Fatalf("Error getting current cluster info: %v", err)
 			}
-			os.Exit(1)
+			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		clusterInfo := loadClusterByArn(clusterArn)
-
-		// clusterInfo := loadClusterByArn(clusterARN)
-		if clusterInfo == nil {
-			fmt.Println("Cluster not found")
+		if len(clusterList) == 0 {
+			fmt.Println("No clusters found matching the specified filters")
 			return
 		}
 
-		ami, err := cmd.Flags().GetString("ami")
-		if err != nil {
-			ami = ""
-		}
-
-		noHeaders, err := cmd.Flags().GetBool("no-headers")
-		if err != nil {
-			noHeaders = false
-		}
-
 		if ami != "" {
-			amiInfo, err := ec2.GetAMIInfo(clusterInfo.AWSProfile, clusterInfo.Region, ami)
-			if err != nil {
-				fmt.Printf("Error getting AMI info: %s\n", err.Error())
-				os.Exit(1)
+			for _, clusterInfo := range clusterList {
+				amiInfo, err := ec2.GetAMIInfo(clusterInfo.AWSProfile, clusterInfo.Region, ami)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error getting AMI info for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
+					continue
+				}
+				printutils.PrintAMIs(noHeaders, *amiInfo)
 			}
-
-			printutils.PrintAMIs(noHeaders, *amiInfo)
-
 		} else {
-			clusterNGList, err := eks.GetEKSNodeGroups(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-
-			if err != nil {
-				fmt.Printf("Error listing nodegroups: %s\n", err.Error())
-				return
+			allNodeGroups := []eks.EKSNodeGroupInfo{}
+			for _, clusterInfo := range clusterList {
+				clusterNGList, err := eks.GetEKSNodeGroups(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error listing nodegroups for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
+					continue
+				}
+				allNodeGroups = append(allNodeGroups, clusterNGList...)
 			}
+			printutils.PrintNodeGroup(noHeaders, allNodeGroups...)
+		}
 
-			printutils.PrintNodeGroup(noHeaders, clusterNGList...)
+		if hasFilters {
+			saveCacheToDisk()
 		}
 	},
 }
 
 func init() {
 	nodegroupsCmd.Flags().StringP("ami", "a", "", "Describe AMI used by the nodegroup")
+	nodegroupsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
+	nodegroupsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	nodegroupsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	nodegroupsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	nodegroupsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	nodegroupsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
+	nodegroupsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 
 	rootCmd.AddCommand(nodegroupsCmd)
 }

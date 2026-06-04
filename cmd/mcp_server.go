@@ -19,7 +19,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var mcpServerCmd = &cobra.Command{
@@ -66,7 +65,7 @@ func captureOutput(fn func()) string {
 
 	w.Close()
 	os.Stdout = old
-	log.SetOutput(oldLog.(io.Writer))
+	log.SetOutput(oldLog)
 
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
@@ -130,25 +129,6 @@ func (f clusterFilterArgs) loadClusters() ([]data.ClusterInfo, error) {
 		}
 	}
 	return LoadClusterList([]string{}, f.Profile, f.ProfileContains, f.ClusterContains, f.ClusterNotContains, f.Region, f.Version)
-}
-
-// withContextRestore saves and restores the kubeconfig context around fn.
-func withContextRestore(fn func()) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	config, err := loadingRules.Load()
-	if err != nil {
-		fn()
-		return
-	}
-	previousContext := config.CurrentContext
-	defer func() {
-		config, err := loadingRules.Load()
-		if err == nil {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}
-	}()
-	fn()
 }
 
 func addClusterFilterProps(tool mcp.Tool) mcp.Tool {
@@ -515,39 +495,26 @@ func handleGetNodes(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 
 		allNodes := []data.ClusterNodeInfo{}
 
-		withContextRestore(func() {
-			for _, clusterInfo := range clusterList {
-				if filters.hasFilters() {
-					err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-					if err != nil {
-						continue
-					}
-				}
-
-				clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-					clientcmd.NewDefaultClientConfigLoadingRules(),
-					&clientcmd.ConfigOverrides{},
-				)
-				restConfig, err := clientConfig.ClientConfig()
-				if err != nil {
-					continue
-				}
-
-				nodeList, err := k8s.GetNodesWithConfig(restConfig)
-				if err != nil {
-					continue
-				}
-
-				for _, node := range nodeList {
-					allNodes = append(allNodes, data.ClusterNodeInfo{
-						Profile:     clusterInfo.AWSProfile,
-						Region:      clusterInfo.Region,
-						ClusterName: clusterInfo.ClusterName,
-						Node:        node,
-					})
-				}
+		for _, clusterInfo := range clusterList {
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
+			if err != nil {
+				continue
 			}
-		})
+
+			nodeList, err := k8s.GetNodesWithConfig(restConfig)
+			if err != nil {
+				continue
+			}
+
+			for _, node := range nodeList {
+				allNodes = append(allNodes, data.ClusterNodeInfo{
+					Profile:     clusterInfo.AWSProfile,
+					Region:      clusterInfo.Region,
+					ClusterName: clusterInfo.ClusterName,
+					Node:        node,
+				})
+			}
+		}
 
 		if len(allNodes) == 0 {
 			output = "No nodes found."
@@ -771,22 +738,18 @@ func handleGetStats(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 
 		k8sStatsList := []k8s.K8Sstats{}
 
-		withContextRestore(func() {
-			for _, clusterInfo := range clusterList {
-				if filters.hasFilters() {
-					err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-					if err != nil {
-						continue
-					}
-				}
-
-				stats, err := k8s.GetK8sStats(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version)
-				if err != nil {
-					continue
-				}
-				k8sStatsList = append(k8sStatsList, *stats)
+		for _, clusterInfo := range clusterList {
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
+			if err != nil {
+				continue
 			}
-		})
+
+			stats, err := k8s.GetK8sStatsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version)
+			if err != nil {
+				continue
+			}
+			k8sStatsList = append(k8sStatsList, *stats)
+		}
 
 		if len(k8sStatsList) == 0 {
 			output = "No stats available."
@@ -821,22 +784,18 @@ func handleGetKarpenterNodePools(ctx context.Context, request mcp.CallToolReques
 
 		allNodePools := []data.KarpenterNodePoolInfo{}
 
-		withContextRestore(func() {
-			for _, clusterInfo := range clusterList {
-				if filters.hasFilters() {
-					err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-					if err != nil {
-						continue
-					}
-				}
-
-				nodePools, err := karpenter.GetNodePools(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-				if err != nil {
-					continue
-				}
-				allNodePools = append(allNodePools, nodePools...)
+		for _, clusterInfo := range clusterList {
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
+			if err != nil {
+				continue
 			}
-		})
+
+			nodePools, err := karpenter.GetNodePoolsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+			if err != nil {
+				continue
+			}
+			allNodePools = append(allNodePools, nodePools...)
+		}
 
 		if len(allNodePools) == 0 {
 			output = "No Karpenter NodePools found."
@@ -871,22 +830,18 @@ func handleGetKarpenterNodeClaims(ctx context.Context, request mcp.CallToolReque
 
 		allNodeClaims := []data.KarpenterNodeClaimInfo{}
 
-		withContextRestore(func() {
-			for _, clusterInfo := range clusterList {
-				if filters.hasFilters() {
-					err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-					if err != nil {
-						continue
-					}
-				}
-
-				nodeClaims, err := karpenter.GetNodeClaims(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-				if err != nil {
-					continue
-				}
-				allNodeClaims = append(allNodeClaims, nodeClaims...)
+		for _, clusterInfo := range clusterList {
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
+			if err != nil {
+				continue
 			}
-		})
+
+			nodeClaims, err := karpenter.GetNodeClaimsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+			if err != nil {
+				continue
+			}
+			allNodeClaims = append(allNodeClaims, nodeClaims...)
+		}
 
 		if len(allNodeClaims) == 0 {
 			output = "No Karpenter NodeClaims found."
@@ -921,22 +876,18 @@ func handleGetKarpenterDrift(ctx context.Context, request mcp.CallToolRequest) (
 
 		allDrift := []data.KarpenterDriftInfo{}
 
-		withContextRestore(func() {
-			for _, clusterInfo := range clusterList {
-				if filters.hasFilters() {
-					err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-					if err != nil {
-						continue
-					}
-				}
-
-				drifted, err := karpenter.GetDriftedResources(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-				if err != nil {
-					continue
-				}
-				allDrift = append(allDrift, drifted...)
+		for _, clusterInfo := range clusterList {
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
+			if err != nil {
+				continue
 			}
-		})
+
+			drifted, err := karpenter.GetDriftedResourcesWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+			if err != nil {
+				continue
+			}
+			allDrift = append(allDrift, drifted...)
+		}
 
 		if len(allDrift) == 0 {
 			output = "No drifted Karpenter resources found."

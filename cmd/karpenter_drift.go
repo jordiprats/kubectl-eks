@@ -4,11 +4,9 @@ import (
 	"log"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/karpenter"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var karpenterDriftCmd = &cobra.Command{
@@ -59,28 +57,16 @@ due to configuration changes, AMI updates, or other factors.`,
 			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		// Save and restore context
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-		defer func() {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}()
-
 		allDriftedResources := []data.KarpenterDriftInfo{}
 
 		for _, clusterInfo := range clusterList {
-			err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to update kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
 				continue
 			}
 
-			driftedResources, err := karpenter.GetDriftedResources(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+			driftedResources, err := karpenter.GetDriftedResourcesWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
 			if err != nil {
 				log.Printf("Warning: Failed to get drifted resources from cluster %s: %v", clusterInfo.ClusterName, err)
 				continue

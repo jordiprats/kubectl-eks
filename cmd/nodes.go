@@ -5,10 +5,10 @@ import (
 	"log"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -94,41 +94,29 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 		return
 	}
 
-	// Save and restore context only if we're switching clusters
-	if !skipContextSwitch {
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-		defer func() {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}()
-	}
-
 	allNodes := []data.ClusterNodeInfo{}
 
 	for _, clusterInfo := range clusterList {
+		var restConfig *rest.Config
+		var err error
+
 		if !skipContextSwitch {
-			err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+			restConfig, err = GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to update kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
 				continue
 			}
-		}
-
-		// Create fresh client config to pick up the switched context (same pattern as mget)
-		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			clientcmd.NewDefaultClientConfigLoadingRules(),
-			&clientcmd.ConfigOverrides{},
-		)
-
-		restConfig, err := clientConfig.ClientConfig()
-		if err != nil {
-			log.Printf("Warning: Failed to get client config for cluster %s: %v", clusterInfo.ClusterName, err)
-			continue
+		} else {
+			// Use current context directly
+			clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+				clientcmd.NewDefaultClientConfigLoadingRules(),
+				&clientcmd.ConfigOverrides{},
+			)
+			restConfig, err = clientConfig.ClientConfig()
+			if err != nil {
+				log.Printf("Warning: Failed to get client config for cluster %s: %v", clusterInfo.ClusterName, err)
+				continue
+			}
 		}
 
 		nodeList, err := k8s.GetNodesWithConfig(restConfig)

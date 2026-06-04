@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -24,6 +25,14 @@ func GetNodePools(profile, region, clusterName string) ([]data.KarpenterNodePool
 		return nil, fmt.Errorf("failed to build kubeconfig: %w", err)
 	}
 
+	return getNodePoolsWithConfig(config, profile, region, clusterName)
+}
+
+func GetNodePoolsWithConfig(restConfig *rest.Config, profile, region, clusterName string) ([]data.KarpenterNodePoolInfo, error) {
+	return getNodePoolsWithConfig(restConfig, profile, region, clusterName)
+}
+
+func getNodePoolsWithConfig(config *rest.Config, profile, region, clusterName string) ([]data.KarpenterNodePoolInfo, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dynamic client: %w", err)

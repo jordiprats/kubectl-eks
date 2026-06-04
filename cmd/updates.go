@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"regexp"
-	"strings"
+	"log"
 
+	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
@@ -21,73 +20,82 @@ Displays current versions and available updates for:
   - EKS managed add-ons (VPC CNI, CoreDNS, kube-proxy, etc.)
   - Platform version
 
-Helps plan cluster upgrades and maintain compatibility with the latest
-Kubernetes releases and security patches.`,
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		clusterArn := ""
+		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		refresh, _ := cmd.Flags().GetBool("refresh")
 
-		if len(args) != 1 {
-			// Load Kubernetes configuration
-			config, err := KubernetesConfigFlags.ToRawKubeConfigLoader().RawConfig()
+		// Get filter flags
+		profile, _ := cmd.Flags().GetString("profile")
+		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
+		region, _ := cmd.Flags().GetString("region")
+		version, _ := cmd.Flags().GetString("version")
+
+		// Check if any filter is specified
+		hasFilters := profile != "" || profileContains != "" || nameContains != "" ||
+			nameNotContains != "" || region != "" || version != ""
+
+		var clusterList []data.ClusterInfo
+
+		if hasFilters {
+			loadCacheFromDisk()
+			if CachedData == nil {
+				CachedData = &data.KubeCtlEksCache{
+					ClusterByARN: make(map[string]data.ClusterInfo),
+					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+				}
+			}
+			if CachedData.ClusterList == nil {
+				CachedData.ClusterList = make(map[string]map[string][]data.ClusterInfo)
+			}
+
+			var err error
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %v\n", err.Error())
-				os.Exit(1)
+				log.Fatalf("Error loading cluster list: %v", err)
 			}
-
-			// Get current context
-			currentContext := config.CurrentContext
-			// fmt.Printf("Current context: %s\n", currentContext)
-
-			// Retrieve cluster information
-			contextDetails, exists := config.Contexts[currentContext]
-			if !exists {
-				fmt.Fprintf(os.Stderr, "Context '%s' not found in kubeconfig\n", currentContext)
-				os.Exit(1)
-			}
-
-			clusterArn = contextDetails.Cluster
 		} else {
-			clusterArn = strings.TrimSpace(args[0])
-		}
-
-		// check if it is an ARN
-		arnRegex := `^arn:aws:eks:([a-z0-9-]+):(\d{12}):cluster/([a-zA-Z0-9-]+)$`
-		re := regexp.MustCompile(arnRegex)
-
-		matches := re.FindStringSubmatch(clusterArn)
-		if matches == nil {
-			if len(args) != 1 {
-				fmt.Printf("Current cluster is not an EKS cluster\n")
-			} else {
-				fmt.Printf("Invalid cluster ARN: %q\n", clusterArn)
+			clusterInfo, err := GetCurrentClusterInfo()
+			if err != nil {
+				log.Fatalf("Error getting current cluster info: %v", err)
 			}
-			os.Exit(1)
+			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		clusterInfo := loadClusterByArn(clusterArn)
-
-		// clusterInfo := loadClusterByArn(clusterARN)
-		if clusterInfo == nil {
-			fmt.Println("Cluster not found")
+		if len(clusterList) == 0 {
+			fmt.Println("No clusters found matching the specified filters")
 			return
 		}
 
-		updateList, err := eks.GetEKSUpdates(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-
-		if err != nil {
-			fmt.Printf("Error listing updates: %s\n", err.Error())
-			return
+		allUpdates := []eks.EKSUpdateInfo{}
+		for _, clusterInfo := range clusterList {
+			updateList, err := eks.GetEKSUpdates(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+			if err != nil {
+				fmt.Fprintf(log.Writer(), "Error listing updates for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
+				continue
+			}
+			allUpdates = append(allUpdates, updateList...)
 		}
 
-		noHeaders, err := cmd.Flags().GetBool("no-headers")
-		if err != nil {
-			noHeaders = false
-		}
+		printutils.PrintUpdates(noHeaders, allUpdates...)
 
-		printutils.PrintUpdates(noHeaders, updateList...)
+		if hasFilters {
+			saveCacheToDisk()
+		}
 	},
 }
 
 func init() {
+	updatesCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
+	updatesCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	updatesCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	updatesCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	updatesCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	updatesCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
+	updatesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+
 	rootCmd.AddCommand(updatesCmd)
 }

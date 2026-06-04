@@ -6,6 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -42,6 +43,46 @@ func GetServiceAccountsWithIRSA(ctx context.Context, namespace string) ([]corev1
 		}
 	} else {
 		// Get service accounts from specific namespace
+		saList, err := clientset.CoreV1().ServiceAccounts(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, sa := range saList.Items {
+			if _, ok := sa.Annotations["eks.amazonaws.com/role-arn"]; ok {
+				serviceAccounts = append(serviceAccounts, sa)
+			}
+		}
+	}
+
+	return serviceAccounts, nil
+}
+
+func GetServiceAccountsWithIRSAWithConfig(ctx context.Context, restConfig *rest.Config, namespace string) ([]corev1.ServiceAccount, error) {
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	var serviceAccounts []corev1.ServiceAccount
+
+	if namespace == "" {
+		namespaceList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ns := range namespaceList.Items {
+			saList, err := clientset.CoreV1().ServiceAccounts(ns.Name).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				continue
+			}
+			for _, sa := range saList.Items {
+				if _, ok := sa.Annotations["eks.amazonaws.com/role-arn"]; ok {
+					serviceAccounts = append(serviceAccounts, sa)
+				}
+			}
+		}
+	} else {
 		saList, err := clientset.CoreV1().ServiceAccounts(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err

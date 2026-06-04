@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strings"
+	"log"
 
 	"github.com/jordiprats/kubectl-eks/pkg/cf"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
@@ -21,103 +20,100 @@ identifying stacks managing EKS node groups, VPC resources, or other
 EKS-related infrastructure.
 
 By default, shows stacks for the current cluster. Use filters to query
-stacks across multiple clusters or search by stack name/parameters.`,
+stacks across multiple clusters or search by stack name/parameters.
+
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		searchName, err := cmd.Flags().GetString("name")
-		if err != nil {
-			searchName = ""
-		}
+		searchName, _ := cmd.Flags().GetString("name")
+		paramFilter, _ := cmd.Flags().GetBool("by-parameter")
+		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		refresh, _ := cmd.Flags().GetBool("refresh")
 
-		paramFilter, err := cmd.Flags().GetBool("by-parameter")
-		if err != nil {
-			paramFilter = false
-		}
+		// Get filter flags
+		profile, _ := cmd.Flags().GetString("profile")
+		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		nameContains, _ := cmd.Flags().GetString("cluster-contains")
+		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
+		region, _ := cmd.Flags().GetString("region")
+		version, _ := cmd.Flags().GetString("version")
 
-		clusterArn := ""
+		// Check if any filter is specified
+		hasFilters := profile != "" || profileContains != "" || nameContains != "" ||
+			nameNotContains != "" || region != "" || version != ""
 
-		if len(args) != 1 {
-			config, err := KubernetesConfigFlags.ToRawKubeConfigLoader().RawConfig()
+		var clusterList []data.ClusterInfo
+
+		if hasFilters {
+			loadCacheFromDisk()
+			if CachedData == nil {
+				CachedData = &data.KubeCtlEksCache{
+					ClusterByARN: make(map[string]data.ClusterInfo),
+					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+				}
+			}
+			if CachedData.ClusterList == nil {
+				CachedData.ClusterList = make(map[string]map[string][]data.ClusterInfo)
+			}
+
+			var err error
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error loading kubeconfig: %v\n", err.Error())
-				os.Exit(1)
+				log.Fatalf("Error loading cluster list: %v", err)
 			}
-
-			currentContext := config.CurrentContext
-
-			contextDetails, exists := config.Contexts[currentContext]
-			if !exists {
-				fmt.Fprintf(os.Stderr, "Context '%s' not found in kubeconfig\n", currentContext)
-				os.Exit(1)
-			}
-
-			clusterArn = contextDetails.Cluster
 		} else {
-			clusterArn = strings.TrimSpace(args[0])
-		}
-
-		loadCacheFromDisk()
-		if CachedData == nil {
-			CachedData = &data.KubeCtlEksCache{
-				ClusterByARN: make(map[string]data.ClusterInfo),
-				ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+			clusterInfo, err := GetCurrentClusterInfo()
+			if err != nil {
+				log.Fatalf("Error getting current cluster info: %v", err)
 			}
+			clusterList = []data.ClusterInfo{clusterInfo}
 		}
 
-		clusterInfo, exists := CachedData.ClusterByARN[clusterArn]
-		if !exists {
-			foundClusterInfo := loadClusterByArn(clusterArn)
+		if len(clusterList) == 0 {
+			fmt.Println("No clusters found matching the specified filters")
+			return
+		}
 
-			if foundClusterInfo == nil {
-				fmt.Println("Current cluster is not an EKS cluster")
-				os.Exit(1)
+		allStacks := []cf.StackInfo{}
+		for _, clusterInfo := range clusterList {
+			clusterSearchName := searchName
+			if clusterSearchName == "" {
+				clusterSearchName = clusterInfo.ClusterName
+			}
+
+			var stackList []cf.StackInfo
+			var err error
+			if paramFilter {
+				stackList, err = cf.GetStacksByParameter("ClusterName", clusterSearchName, clusterInfo.AWSProfile, clusterInfo.Region)
 			} else {
-				clusterInfo = *foundClusterInfo
+				stackList, err = cf.GetStacks(clusterSearchName, clusterInfo.AWSProfile, clusterInfo.Region)
 			}
-		}
 
-		if clusterInfo.Arn != clusterArn {
-			CachedData = &data.KubeCtlEksCache{
-				ClusterByARN: make(map[string]data.ClusterInfo),
-				ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+			if err != nil {
+				fmt.Fprintf(log.Writer(), "Error getting CF stacks for cluster %s: %v\n", clusterInfo.ClusterName, err)
+				continue
 			}
-			foundClusterInfo := loadClusterByArn(clusterArn)
-			if foundClusterInfo == nil {
-				fmt.Println("Current cluster is not an EKS cluster")
-				os.Exit(1)
-			} else {
-				clusterInfo = *foundClusterInfo
-			}
+			allStacks = append(allStacks, stackList...)
 		}
 
-		if searchName == "" {
-			searchName = clusterInfo.ClusterName
-		}
+		printutils.PrintStacks(noHeaders, allStacks...)
 
-		var stackList []cf.StackInfo
-		if paramFilter {
-			// Filter by ClusterName parameter value
-			stackList, err = cf.GetStacksByParameter("ClusterName", searchName, clusterInfo.AWSProfile, clusterInfo.Region)
-		} else {
-			// Original name-based search
-			stackList, err = cf.GetStacks(searchName, clusterInfo.AWSProfile, clusterInfo.Region)
+		if hasFilters {
+			saveCacheToDisk()
 		}
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting CF stacks: %v\n", err.Error())
-			os.Exit(1)
-		}
-
-		noHeaders, err := cmd.Flags().GetBool("no-headers")
-		if err != nil {
-			noHeaders = false
-		}
-
-		printutils.PrintStacks(noHeaders, stackList...)
 	},
 }
 
 func init() {
 	stacksCmd.Flags().String("name", "", "Search for a specific stack name")
-	stacksCmd.Flags().BoolP("by-parameter", "p", false, "Filter stacks by ClusterName parameter instead of stack name")
+	stacksCmd.Flags().BoolP("by-parameter", "b", false, "Filter stacks by ClusterName parameter instead of stack name")
+	stacksCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
+	stacksCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
+	stacksCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	stacksCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
+	stacksCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
+	stacksCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
+	stacksCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+
 	rootCmd.AddCommand(stacksCmd)
 }

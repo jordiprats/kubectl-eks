@@ -8,6 +8,9 @@ import (
 
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
+	"github.com/jordiprats/kubectl-eks/pkg/eks"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func LoadClusterList(args []string, profile, profile_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
@@ -139,4 +142,28 @@ func LoadClusterList(args []string, profile, profile_contains, name_contains, na
 	}
 
 	return clusterList, nil
+}
+
+// GetRestConfigForCluster creates a temporary kubeconfig for the given cluster
+// and returns a rest.Config without modifying the user's actual kubeconfig.
+func GetRestConfigForCluster(clusterInfo data.ClusterInfo) (*rest.Config, error) {
+	tmpFile, err := os.CreateTemp("", "kubectl-eks-*.kubeconfig")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp kubeconfig: %v", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	err = eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, tmpPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update temp kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+	}
+
+	restConfig, err := clientcmd.BuildConfigFromFlags("", tmpPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build config from temp kubeconfig: %v", err)
+	}
+
+	return restConfig, nil
 }

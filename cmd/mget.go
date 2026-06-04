@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/jordiprats/kubectl-eks/pkg/status"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/jsonpath"
 )
 
@@ -92,18 +90,6 @@ Supports output formats:
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
 
-		// Save and restore context
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-		defer func() {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}()
-
 		// Check if JSONPath output
 		if strings.HasPrefix(output, "jsonpath=") {
 			jsonpathExpr := strings.TrimPrefix(output, "jsonpath=")
@@ -124,13 +110,13 @@ func runPodListing(clusterList []data.ClusterInfo, namespace string, allNamespac
 	k8SClusterPodList := []k8s.K8SClusterPodList{}
 
 	for _, clusterInfo := range clusterList {
-		err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+		restConfig, err := GetRestConfigForCluster(clusterInfo)
 		if err != nil {
-			log.Printf("Warning: Failed to update kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+			log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
 			continue
 		}
 
-		k8sPodList, err := k8s.GetPods(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version, namespace, allNamespaces)
+		k8sPodList, err := k8s.GetPodsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version, namespace, allNamespaces)
 		if err != nil {
 			log.Printf("Warning: Failed to get pods from cluster %s: %v", clusterInfo.ClusterName, err)
 			continue
@@ -194,17 +180,7 @@ func runGenericListing(clusterList []data.ClusterInfo, resourceType, resourceNam
 	results := []data.ResourceResult{}
 
 	for _, clusterInfo := range clusterList {
-		err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-		if err != nil {
-			continue
-		}
-
-		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			clientcmd.NewDefaultClientConfigLoadingRules(),
-			&clientcmd.ConfigOverrides{},
-		)
-
-		restConfig, err := clientConfig.ClientConfig()
+		restConfig, err := GetRestConfigForCluster(clusterInfo)
 		if err != nil {
 			continue
 		}
@@ -250,12 +226,7 @@ func runGenericListing(clusterList []data.ClusterInfo, resourceType, resourceNam
 			} else if namespace != "" {
 				namespaces = append(namespaces, namespace)
 			} else {
-				ns, _, err := clientConfig.Namespace()
-				if err != nil {
-					namespaces = append(namespaces, "default")
-				} else {
-					namespaces = append(namespaces, ns)
-				}
+				namespaces = append(namespaces, "default")
 			}
 		} else {
 			// Cluster-scoped resource
@@ -447,17 +418,7 @@ func runJsonPathQuery(clusterList []data.ClusterInfo, resourceType, resourceName
 	results := []data.JsonPathResult{}
 
 	for _, clusterInfo := range clusterList {
-		err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
-		if err != nil {
-			continue
-		}
-
-		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			clientcmd.NewDefaultClientConfigLoadingRules(),
-			&clientcmd.ConfigOverrides{},
-		)
-
-		restConfig, err := clientConfig.ClientConfig()
+		restConfig, err := GetRestConfigForCluster(clusterInfo)
 		if err != nil {
 			continue
 		}
@@ -499,12 +460,7 @@ func runJsonPathQuery(clusterList []data.ClusterInfo, resourceType, resourceName
 			} else if namespace != "" {
 				namespaces = append(namespaces, namespace)
 			} else {
-				ns, _, err := clientConfig.Namespace()
-				if err != nil {
-					namespaces = append(namespaces, "default")
-				} else {
-					namespaces = append(namespaces, ns)
-				}
+				namespaces = append(namespaces, "default")
 			}
 		} else {
 			namespaces = append(namespaces, "")

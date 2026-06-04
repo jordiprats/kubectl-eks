@@ -6,14 +6,12 @@ import (
 	"log"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var mCheckCmd = &cobra.Command{
@@ -78,34 +76,13 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
 
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		config, err := loadingRules.Load()
-		if err != nil {
-			log.Fatalf("Error loading kubeconfig: %v", err)
-		}
-		previousContext := config.CurrentContext
-		defer func() {
-			config.CurrentContext = previousContext
-			clientcmd.ModifyConfig(loadingRules, *config, true)
-		}()
-
 		allResults := []data.HealthCheckResult{}
 		clusterSummaries := []data.ClusterHealthSummary{}
 
 		for _, clusterInfo := range clusterList {
-			err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to update kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
-				continue
-			}
-
-			clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-				clientcmd.NewDefaultClientConfigLoadingRules(),
-				&clientcmd.ConfigOverrides{},
-			)
-
-			restConfig, err := clientConfig.ClientConfig()
-			if err != nil {
+				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
 				continue
 			}
 
