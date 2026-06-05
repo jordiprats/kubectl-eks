@@ -132,6 +132,7 @@ kubectl-eks mcp-server
 | `use_cluster` | Switch kubectl context to a different EKS cluster |
 | `get_nodes` | List Kubernetes nodes with instance details, CPU/memory, pressure |
 | `get_nodegroups` | List EKS managed node groups with scaling config |
+| `get_resources` | Get any Kubernetes resource (pods, deployments, statefulsets, CRDs, etc.) across clusters |
 | `get_events` | Show Kubernetes events (scheduling, errors, warnings) |
 | `get_insights` | Show EKS insights, deprecation warnings, upgrade blockers |
 | `whoami` | Show current AWS IAM identity and Kubernetes user mapping |
@@ -145,7 +146,7 @@ kubectl-eks mcp-server
 | `get_fargate_profiles` | List Fargate profiles and selectors |
 | `get_quotas` | Show ResourceQuota usage per namespace |
 
-Most multi-cluster tools accept optional filter parameters: `profile`, `profile_contains`, `cluster_contains`, `cluster_not_contains`, `region`, and `version`.
+Most multi-cluster tools accept optional filter parameters: `profile`, `profile_contains`, `profile_not_contains`, `cluster_contains`, `cluster_not_contains`, `region`, and `version`.
 
 ## <a name='QuickStart'></a>Quick Start
 
@@ -154,7 +155,10 @@ Most multi-cluster tools accept optional filter parameters: `profile`, `profile_
 kubectl eks list
 
 # Filter clusters by name
-kubectl eks list --name-contains prod
+kubectl eks list -c prod
+
+# Exclude profiles containing "prod"
+kubectl eks list -Q prod
 
 # Switch to a specific cluster
 kubectl eks use my-cluster
@@ -175,5 +179,5 @@ kubectl eks mget pods --filter status.phase=Running
 kubectl eks stats
 
 # Get insights about a cluster
-kubectl eks insights my-cluster
+kubectl eks insights
 ```
