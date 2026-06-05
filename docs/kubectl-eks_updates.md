@@ -11,8 +11,8 @@ Displays current versions and available updates for:
   - EKS managed add-ons (VPC CNI, CoreDNS, kube-proxy, etc.)
   - Platform version
 
-Helps plan cluster upgrades and maintain compatibility with the latest
-Kubernetes releases and security patches.
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
 
 ```
 kubectl-eks updates [flags]
@@ -21,7 +21,15 @@ kubectl-eks updates [flags]
 ### Options
 
 ```
-  -h, --help   help for updates
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for updates
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

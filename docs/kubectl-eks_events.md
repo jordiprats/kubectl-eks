@@ -12,6 +12,9 @@ image pulls, volume mounts, configuration changes, and errors.
 By default shows all event types (Normal and Warning). Use --warnings-only
 to filter for just Warning events. Events are sorted with most recent first.
 
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
+
 ```
 kubectl-eks events [flags]
 ```
@@ -28,18 +31,26 @@ kubectl-eks events [flags]
   # Show events for specific namespace
   kubectl eks events -n kube-system
 
-  # Show all events (explicit)
-  kubectl eks events --all
+  # Show events across clusters matching filter
+  kubectl eks events --cluster-contains prod
 ```
 
 ### Options
 
 ```
-      --all                Show all events (default behavior)
-  -A, --all-namespaces     Show events across all namespaces (default)
-  -h, --help               help for events
-  -n, --namespace string   Namespace to show events for
-      --warnings-only      Show only warning events
+      --all                           Show all events (default behavior)
+  -A, --all-namespaces                Show events across all namespaces (default)
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for events
+  -n, --namespace string              Namespace to show events for
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
+      --warnings-only                 Show only warning events
 ```
 
 ### Options inherited from parent commands

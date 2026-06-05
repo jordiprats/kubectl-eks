@@ -17,10 +17,11 @@ kubectl-eks cache refresh [flags]
 ### Options
 
 ```
-  -h, --help                      help for refresh
-  -p, --profile string            Only refresh clusters for this AWS profile
-  -q, --profile-contains string   Only refresh profiles containing this string
-  -r, --region string             Only refresh clusters in this AWS region
+  -h, --help                          help for refresh
+  -p, --profile string                Only refresh clusters for this AWS profile
+  -q, --profile-contains string       Only refresh profiles containing this string
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -r, --region string                 Only refresh clusters in this AWS region
 ```
 
 ### Options inherited from parent commands

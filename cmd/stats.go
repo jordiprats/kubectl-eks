@@ -35,6 +35,8 @@ multiple clusters matching your criteria.`,
 			profile_contains = ""
 		}
 
+		profile_not_contains, _ := cmd.Flags().GetString("profile-not-contains")
+
 		name_contains, err := cmd.Flags().GetString("cluster-contains")
 		if err != nil {
 			name_contains = ""
@@ -55,7 +57,7 @@ multiple clusters matching your criteria.`,
 			version = ""
 		}
 
-		clusterList, err := LoadClusterList(args, profile, profile_contains, name_contains, name_not_contains, region, version, refresh)
+		clusterList, err := LoadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, refresh)
 		if err != nil {
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
@@ -91,6 +93,7 @@ func init() {
 	statsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	statsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
 	statsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	statsCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	statsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	statsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	statsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")

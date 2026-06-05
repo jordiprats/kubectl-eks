@@ -50,6 +50,7 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		profileNotContains, _ := cmd.Flags().GetString("profile-not-contains")
 		nameContains, _ := cmd.Flags().GetString("cluster-contains")
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
@@ -71,7 +72,7 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 			checkPods, checkDeploys, checkSts, checkDs, checkRs = true, true, true, true, true
 		}
 
-		clusterList, err := LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
+		clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
 		if err != nil {
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
@@ -484,6 +485,7 @@ func init() {
 	mCheckCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	mCheckCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
 	mCheckCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	mCheckCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	mCheckCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	mCheckCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	mCheckCmd.Flags().StringP("region", "r", "", "Filter by AWS region")

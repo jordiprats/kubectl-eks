@@ -71,6 +71,11 @@ You can filter by cluster name, region, version, or AWS profile.`,
 			profile_contains = ""
 		}
 
+		profile_not_contains, err := cmd.Flags().GetString("profile-not-contains")
+		if err != nil {
+			profile_not_contains = ""
+		}
+
 		name_contains, err := cmd.Flags().GetString("cluster-contains")
 		if err != nil {
 			name_contains = ""
@@ -127,6 +132,9 @@ You can filter by cluster name, region, version, or AWS profile.`,
 				continue
 			}
 			if profile_contains != "" && !strings.Contains(profileDetails.Name, profile_contains) {
+				continue
+			}
+			if profile_not_contains != "" && strings.Contains(profileDetails.Name, profile_not_contains) {
 				continue
 			}
 			for _, hintRegion := range profileDetails.HintEKSRegions {
@@ -275,6 +283,7 @@ func init() {
 	listCmd.Flags().BoolP("refresh", "u", false, "Refresh data from AWS")
 	listCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
 	listCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	listCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	listCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	listCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	listCmd.Flags().StringP("region", "r", "", "Filter by AWS region")

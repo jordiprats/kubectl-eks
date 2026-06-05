@@ -56,6 +56,7 @@ pick one.`,
 		}
 
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		profileNotContains, _ := cmd.Flags().GetString("profile-not-contains")
 		nameContains, _ := cmd.Flags().GetString("cluster-contains")
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
@@ -64,12 +65,12 @@ pick one.`,
 		oldest, _ := cmd.Flags().GetBool("oldest")
 		newest, _ := cmd.Flags().GetBool("newest")
 
-		hasFilters := profileContains != "" || nameContains != "" || nameNotContains != "" || region != "" || version != "" || refresh || oldest || newest
+		hasFilters := profileContains != "" || profileNotContains != "" || nameContains != "" || nameNotContains != "" || region != "" || version != "" || refresh || oldest || newest
 
 		// When filters are provided (or no args at all and filters narrow it down),
 		// use the same resolution logic as 'use'.
 		if hasFilters || target != "" {
-			clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, "", profileContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
+			clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, "", profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
 			if err != nil {
 				if len(ambiguousMatches) > 1 {
 					printAmbiguousSelectionHelp(target, ambiguousMatches)
@@ -127,6 +128,7 @@ pick one.`,
 func init() {
 	profileCmd.Flags().BoolP("refresh", "u", false, "Refresh data from AWS")
 	profileCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	profileCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	profileCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	profileCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	profileCmd.Flags().StringP("region", "r", "", "Filter by AWS region")

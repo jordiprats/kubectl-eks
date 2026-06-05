@@ -32,6 +32,7 @@ Use --profile or --region to limit the refresh scope.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		profileNotContains, _ := cmd.Flags().GetString("profile-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 
 		loadCacheFromDisk()
@@ -54,6 +55,9 @@ Use --profile or --region to limit the refresh scope.`,
 				continue
 			}
 			if profileContains != "" && !strings.Contains(profileDetails.Name, profileContains) {
+				continue
+			}
+			if profileNotContains != "" && strings.Contains(profileDetails.Name, profileNotContains) {
 				continue
 			}
 
@@ -142,6 +146,7 @@ var cacheShowCmd = &cobra.Command{
 func init() {
 	cacheRefreshCmd.Flags().StringP("profile", "p", "", "Only refresh clusters for this AWS profile")
 	cacheRefreshCmd.Flags().StringP("profile-contains", "q", "", "Only refresh profiles containing this string")
+	cacheRefreshCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	cacheRefreshCmd.Flags().StringP("region", "r", "", "Only refresh clusters in this AWS region")
 
 	cacheCmd.AddCommand(cacheRefreshCmd)

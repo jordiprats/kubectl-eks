@@ -11,16 +11,48 @@ Displays node group name, status, instance types, scaling configuration
 current Kubernetes version.
 
 Use this to audit node group configurations and identify scaling settings.
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
 
 ```
 kubectl-eks nodegroups [flags]
 ```
 
+### Examples
+
+```
+  # List nodegroups for current cluster
+  kubectl eks nodegroups
+
+  # Filter by profile substring
+  kubectl eks nodegroups --profile-contains genprod
+
+  # Filter by cluster name substring
+  kubectl eks nodegroups --cluster-contains v2-b
+
+  # Exclude clusters by name substring
+  kubectl eks nodegroups --cluster-not-contains staging
+
+  # Filter by region
+  kubectl eks nodegroups --region us-west-2
+
+  # Combine filters
+  kubectl eks nodegroups -q genprod -c v2-b -x orch -r us-west-2
+```
+
 ### Options
 
 ```
-  -a, --ami string   Describe AMI used by the nodegroup
-  -h, --help         help for nodegroups
+  -a, --ami string                    Describe AMI used by the nodegroup
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for nodegroups
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

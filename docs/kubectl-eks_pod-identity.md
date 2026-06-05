@@ -11,6 +11,9 @@ associations. These are different from IRSA (IAM Roles for Service Accounts).
 
 EKS Pod Identity is a newer AWS feature that eliminates the need for OIDC providers.
 
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
+
 ```
 kubectl-eks pod-identity [flags]
 ```
@@ -26,14 +29,25 @@ kubectl-eks pod-identity [flags]
 
   # List Pod Identity across all namespaces
   kubectl eks pod-identity -A
+
+  # List across clusters matching filter
+  kubectl eks pod-identity --cluster-contains prod
 ```
 
 ### Options
 
 ```
-  -A, --all-namespaces     Show Pod Identity across all namespaces (default)
-  -h, --help               help for pod-identity
-  -n, --namespace string   Namespace to show Pod Identity for
+  -A, --all-namespaces                Show Pod Identity across all namespaces (default)
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for pod-identity
+  -n, --namespace string              Namespace to show Pod Identity for
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

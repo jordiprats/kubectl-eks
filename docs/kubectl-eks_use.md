@@ -36,6 +36,7 @@ kubectl-eks use [cluster-name-or-arn] [flags]
       --oldest                        When multiple clusters match, switch to the oldest cluster
   -p, --profile string                Set specific AWS profile for the context
   -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
   -u, --refresh                       Refresh data from AWS
   -r, --region string                 Filter by AWS region
   -v, --version string                Filter by EKS version

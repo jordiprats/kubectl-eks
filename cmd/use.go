@@ -154,7 +154,7 @@ func tryFastSwitch(target, namespace string) string {
 	return candidateARN
 }
 
-func resolveClusterForUse(target, profile, profileContains, nameContains, nameNotContains, region, version string, refresh, oldest, newest bool) (*data.ClusterInfo, []data.ClusterInfo, error) {
+func resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version string, refresh, oldest, newest bool) (*data.ClusterInfo, []data.ClusterInfo, error) {
 	if oldest && newest {
 		return nil, nil, fmt.Errorf("--oldest and --newest are mutually exclusive")
 	}
@@ -177,7 +177,7 @@ func resolveClusterForUse(target, profile, profileContains, nameContains, nameNo
 		return nil, nil, fmt.Errorf("invalid cluster ARN: %q", target)
 	}
 
-	clusterList, err := LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
+	clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -396,6 +396,11 @@ profile for authentication.`,
 			profileContains = ""
 		}
 
+		profileNotContains, err := cmd.Flags().GetString("profile-not-contains")
+		if err != nil {
+			profileNotContains = ""
+		}
+
 		nameContains, err := cmd.Flags().GetString("cluster-contains")
 		if err != nil {
 			nameContains = ""
@@ -450,7 +455,7 @@ profile for authentication.`,
 			}
 		}
 
-		clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, profile, profileContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
+		clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
 		if err != nil {
 			if len(ambiguousMatches) > 1 {
 				printAmbiguousSelectionHelp(target, ambiguousMatches)
@@ -469,6 +474,7 @@ func init() {
 	useCmd.Flags().StringP("namespace", "n", "", "Set specific namespace for the context")
 	useCmd.Flags().StringP("profile", "p", "", "Set specific AWS profile for the context")
 	useCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	useCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	useCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	useCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	useCmd.Flags().StringP("region", "r", "", "Filter by AWS region")

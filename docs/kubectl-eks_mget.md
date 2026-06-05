@@ -63,6 +63,7 @@ kubectl-eks mget [resource-type] [resource-name] [flags]
   -o, --output string                 Output format: wide|json|yaml|jsonpath=...
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
   -u, --refresh                       Do not use cached data, refresh from AWS
   -r, --region string                 Filter by AWS region
       --resource-contains string      Filter resources that contain this string

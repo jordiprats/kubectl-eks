@@ -13,7 +13,8 @@ Shows hard limits and current usage for resources such as:
   - PersistentVolumeClaim counts
   - ConfigMap/Secret counts
 
-Helps identify quota constraints and capacity planning opportunities.
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
 
 ```
 kubectl-eks quotas [flags]
@@ -30,14 +31,25 @@ kubectl-eks quotas [flags]
 
   # Show quotas across all namespaces
   kubectl eks quotas -A
+
+  # Show quotas across clusters matching filter
+  kubectl eks quotas --cluster-contains prod
 ```
 
 ### Options
 
 ```
-  -A, --all-namespaces     Show quotas across all namespaces
-  -h, --help               help for quotas
-  -n, --namespace string   Namespace to show quotas for
+  -A, --all-namespaces                Show quotas across all namespaces
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for quotas
+  -n, --namespace string              Namespace to show quotas for
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

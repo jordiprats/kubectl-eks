@@ -90,6 +90,7 @@ func suppressStderr(fn func()) {
 type clusterFilterArgs struct {
 	Profile            string
 	ProfileContains    string
+	ProfileNotContains string
 	ClusterContains    string
 	ClusterNotContains string
 	Region             string
@@ -100,6 +101,7 @@ func parseClusterFilters(request mcp.CallToolRequest) clusterFilterArgs {
 	return clusterFilterArgs{
 		Profile:            request.GetString("profile", ""),
 		ProfileContains:    request.GetString("profile_contains", ""),
+		ProfileNotContains: request.GetString("profile_not_contains", ""),
 		ClusterContains:    request.GetString("cluster_contains", ""),
 		ClusterNotContains: request.GetString("cluster_not_contains", ""),
 		Region:             request.GetString("region", ""),
@@ -108,7 +110,7 @@ func parseClusterFilters(request mcp.CallToolRequest) clusterFilterArgs {
 }
 
 func (f clusterFilterArgs) hasFilters() bool {
-	return f.Profile != "" || f.ProfileContains != "" || f.ClusterContains != "" ||
+	return f.Profile != "" || f.ProfileContains != "" || f.ProfileNotContains != "" || f.ClusterContains != "" ||
 		f.ClusterNotContains != "" || f.Region != "" || f.Version != ""
 }
 
@@ -128,7 +130,7 @@ func (f clusterFilterArgs) loadClusters() ([]data.ClusterInfo, error) {
 			ClusterList:  make(map[string]map[string][]data.ClusterInfo),
 		}
 	}
-	return LoadClusterList([]string{}, f.Profile, f.ProfileContains, f.ClusterContains, f.ClusterNotContains, f.Region, f.Version)
+	return LoadClusterList([]string{}, f.Profile, f.ProfileContains, f.ProfileNotContains, f.ClusterContains, f.ClusterNotContains, f.Region, f.Version)
 }
 
 func addClusterFilterProps(tool mcp.Tool) mcp.Tool {
@@ -137,6 +139,7 @@ func addClusterFilterProps(tool mcp.Tool) mcp.Tool {
 		mcp.WithDescription(tool.Description),
 		mcp.WithString("profile", mcp.Description("Filter by exact AWS profile name")),
 		mcp.WithString("profile_contains", mcp.Description("Filter by AWS profile name substring")),
+		mcp.WithString("profile_not_contains", mcp.Description("Exclude profiles whose name contains this substring")),
 		mcp.WithString("cluster_contains", mcp.Description("Filter by cluster name substring")),
 		mcp.WithString("cluster_not_contains", mcp.Description("Exclude clusters whose name contains this substring")),
 		mcp.WithString("region", mcp.Description("Filter by AWS region")),
@@ -301,6 +304,21 @@ func runMCPServer() {
 		handleGetQuotas,
 	)
 
+	// --- get_resources ---
+	s.AddTool(
+		addClusterFilterProps(mcp.NewTool("get_resources",
+			mcp.WithDescription("Get Kubernetes resources (pods, deployments, statefulsets, daemonsets, services, configmaps, CRDs, etc.) across clusters. Similar to 'kubectl get' but works across multiple EKS clusters. Supports any resource type including CRDs."),
+			mcp.WithString("resource_type", mcp.Required(), mcp.Description("Resource type to query (e.g., pods, deployments, statefulsets, services, configmaps, nodes, ingresses, or any CRD)")),
+			mcp.WithString("resource_name", mcp.Description("Specific resource name to get (optional, lists all if empty)")),
+			mcp.WithString("namespace", mcp.Description("Namespace to query (default: 'default')")),
+			mcp.WithBoolean("all_namespaces", mcp.Description("Query all namespaces")),
+			mcp.WithString("resource_contains", mcp.Description("Filter resources whose name contains this substring")),
+			mcp.WithString("filter", mcp.Description("Filter by field value using dot-notation (e.g., status.phase=Running)")),
+			mcp.WithString("output", mcp.Description("Output format: wide, json, yaml")),
+		)),
+		handleGetResources,
+	)
+
 	// Start serving over stdio
 	if err := server.ServeStdio(s); err != nil {
 		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
@@ -435,7 +453,7 @@ func handleUseCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 			}
 		}
 
-		resolved, ambiguous, err := resolveClusterForUse(cluster, profile, profileContains, "", "", region, "", false, false, false)
+		resolved, ambiguous, err := resolveClusterForUse(cluster, profile, profileContains, "", "", "", region, "", false, false, false)
 		if err != nil {
 			if ambiguous != nil {
 				names := make([]string, len(ambiguous))
@@ -1137,6 +1155,49 @@ func handleGetQuotas(ctx context.Context, request mcp.CallToolRequest) (*mcp.Cal
 	}
 
 	return mcp.NewToolResultText(output), nil
+}
+
+func handleGetResources(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	filters := parseClusterFilters(request)
+
+	resourceType := request.GetString("resource_type", "")
+	resourceName := request.GetString("resource_name", "")
+	namespace := request.GetString("namespace", "")
+	allNamespaces := request.GetBool("all_namespaces", false)
+	contains := request.GetString("resource_contains", "")
+	filter := request.GetString("filter", "")
+	output := request.GetString("output", "")
+
+	if resourceType == "" {
+		return mcp.NewToolResultError("resource_type is required"), nil
+	}
+
+	var result string
+	var errMsg string
+
+	suppressStderr(func() {
+		clusterList, err := filters.loadClusters()
+		if err != nil {
+			errMsg = fmt.Sprintf("Error loading clusters: %v", err)
+			return
+		}
+
+		result = captureOutput(func() {
+			runGenericListing(clusterList, resourceType, resourceName, namespace, allNamespaces, "", contains, filter, output, false)
+		})
+
+		if result == "" {
+			result = fmt.Sprintf("No %s found.", resourceType)
+		}
+
+		saveCacheToDisk()
+	})
+
+	if errMsg != "" {
+		return mcp.NewToolResultError(errMsg), nil
+	}
+
+	return mcp.NewToolResultText(result), nil
 }
 
 // --- JSON Helpers ---

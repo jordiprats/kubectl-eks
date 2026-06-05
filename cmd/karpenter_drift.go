@@ -25,13 +25,14 @@ due to configuration changes, AMI updates, or other factors.`,
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		profileNotContains, _ := cmd.Flags().GetString("profile-not-contains")
 		nameContains, _ := cmd.Flags().GetString("cluster-contains")
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 
-		hasFilters := profile != "" || profileContains != "" || nameContains != "" ||
+		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
 			nameNotContains != "" || region != "" || version != ""
 
 		var clusterList []data.ClusterInfo
@@ -45,7 +46,7 @@ due to configuration changes, AMI updates, or other factors.`,
 					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
 				}
 			}
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -85,6 +86,7 @@ func init() {
 	karpenterDriftCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	karpenterDriftCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
 	karpenterDriftCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	karpenterDriftCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	karpenterDriftCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	karpenterDriftCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	karpenterDriftCmd.Flags().StringP("region", "r", "", "Filter by AWS region")

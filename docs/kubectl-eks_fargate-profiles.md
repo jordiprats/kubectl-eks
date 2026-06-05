@@ -9,8 +9,8 @@ List EKS Fargate profiles with namespace selectors and configuration.
 Displays Fargate profile name, status, pod execution role ARN, subnets,
 and namespace/label selectors that determine which pods run on Fargate.
 
-Use this to understand Fargate scheduling rules and troubleshoot pod
-placement issues.
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
 
 ```
 kubectl-eks fargate-profiles [flags]
@@ -19,7 +19,15 @@ kubectl-eks fargate-profiles [flags]
 ### Options
 
 ```
-  -h, --help   help for fargate-profiles
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for fargate-profiles
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

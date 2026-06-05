@@ -13,13 +13,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func LoadClusterList(args []string, profile, profile_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
+func LoadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
 	clusterList := []data.ClusterInfo{}
 
 	doRefresh := len(refresh) > 0 && refresh[0]
 
 	// if filters are empty, use current cluster
-	if profile == "" && profile_contains == "" && name_contains == "" && name_not_contains == "" && region == "" && version == "" {
+	if profile == "" && profile_contains == "" && profile_not_contains == "" && name_contains == "" && name_not_contains == "" && region == "" && version == "" {
 		clusterArn := ""
 
 		// Load Kubernetes configuration
@@ -84,6 +84,9 @@ func LoadClusterList(args []string, profile, profile_contains, name_contains, na
 				continue
 			}
 			if profile_contains != "" && !strings.Contains(profileDetails.Name, profile_contains) {
+				continue
+			}
+			if profile_not_contains != "" && strings.Contains(profileDetails.Name, profile_not_contains) {
 				continue
 			}
 			for _, hintRegion := range profileDetails.HintEKSRegions {

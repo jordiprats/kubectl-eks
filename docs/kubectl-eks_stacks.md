@@ -13,6 +13,9 @@ EKS-related infrastructure.
 By default, shows stacks for the current cluster. Use filters to query
 stacks across multiple clusters or search by stack name/parameters.
 
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
+
 ```
 kubectl-eks stacks [flags]
 ```
@@ -20,9 +23,17 @@ kubectl-eks stacks [flags]
 ### Options
 
 ```
-  -p, --by-parameter   Filter stacks by ClusterName parameter instead of stack name
-  -h, --help           help for stacks
-      --name string    Search for a specific stack name
+  -b, --by-parameter                  Filter stacks by ClusterName parameter instead of stack name
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for stacks
+      --name string                   Search for a specific stack name
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

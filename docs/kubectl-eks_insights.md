@@ -16,6 +16,9 @@ EKS Insights help identify:
 Insights are categorized by severity and include remediation guidance to
 help maintain cluster health and security.
 
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
+
 ```
 kubectl-eks insights [flags]
 ```
@@ -23,8 +26,16 @@ kubectl-eks insights [flags]
 ### Options
 
 ```
-  -h, --help          help for insights
-      --show string   Show details for a specific ID
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for insights
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+      --show string                   Show details for a specific ID
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands

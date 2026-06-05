@@ -31,6 +31,7 @@ kubectl-eks karpenter ami [flags]
   -h, --help                          help for ami
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
   -u, --refresh                       Do not use cached data, refresh from AWS
   -r, --region string                 Filter by AWS region
   -v, --version string                Filter by EKS version

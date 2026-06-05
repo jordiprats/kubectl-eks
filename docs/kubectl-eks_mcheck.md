@@ -56,6 +56,7 @@ kubectl-eks mcheck [flags]
       --pods                          Check only pods
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
   -u, --refresh                       Do not use cached data, refresh from AWS
   -r, --region string                 Filter by AWS region
       --replicasets                   Check only replicasets

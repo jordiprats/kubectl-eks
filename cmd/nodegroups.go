@@ -50,13 +50,14 @@ Without filters, queries the current cluster context.`,
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
 		profileContains, _ := cmd.Flags().GetString("profile-contains")
+		profileNotContains, _ := cmd.Flags().GetString("profile-not-contains")
 		nameContains, _ := cmd.Flags().GetString("cluster-contains")
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 
 		// Check if any filter is specified
-		hasFilters := profile != "" || profileContains != "" || nameContains != "" ||
+		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
 			nameNotContains != "" || region != "" || version != ""
 
 		var clusterList []data.ClusterInfo
@@ -74,7 +75,7 @@ Without filters, queries the current cluster context.`,
 			}
 
 			var err error
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, nameContains, nameNotContains, region, version, refresh)
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -124,6 +125,7 @@ func init() {
 	nodegroupsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
 	nodegroupsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
 	nodegroupsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
+	nodegroupsCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")
 	nodegroupsCmd.Flags().StringP("cluster-contains", "c", "", "Filter by cluster name substring")
 	nodegroupsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	nodegroupsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
