@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.12
 	github.com/aws/aws-sdk-go-v2/config v1.32.22
-	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.71.15
+	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.72.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.305.2
 	github.com/aws/aws-sdk-go-v2/service/eks v1.84.4
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.1
