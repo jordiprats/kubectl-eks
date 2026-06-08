@@ -32,6 +32,7 @@ kubectl-eks karpenter nodeclaims [flags]
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for nodeclaims
+  -m, --nodepool-contains string      Filter by NodePool name substring
   -o, --output string                 Output format: wide
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
