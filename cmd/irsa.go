@@ -99,13 +99,17 @@ Without filters, queries the current cluster context.`,
 			for _, clusterInfo := range clusterList {
 				restConfig, err := GetRestConfigForCluster(clusterInfo)
 				if err != nil {
-					log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
+					if verbose {
+						log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
+					}
 					continue
 				}
 
 				serviceAccounts, err := k8s.GetServiceAccountsWithIRSAWithConfig(context.Background(), restConfig, namespace)
 				if err != nil {
-					log.Printf("Warning: Failed to get service accounts for cluster %s: %v", clusterInfo.ClusterName, err)
+					if verbose {
+						log.Printf("Warning: Failed to get service accounts for cluster %s: %v", clusterInfo.ClusterName, err)
+					}
 					continue
 				}
 

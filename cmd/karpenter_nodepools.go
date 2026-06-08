@@ -68,13 +68,17 @@ and associated NodeClass information.`,
 		for _, clusterInfo := range clusterList {
 			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 
 			nodePools, err := karpenter.GetNodePoolsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
 			if err != nil {
-				log.Printf("Warning: Failed to get NodePools from cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get NodePools from cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 

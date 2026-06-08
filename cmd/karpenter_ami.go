@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/karpenter"
@@ -31,6 +32,7 @@ inventory and tracking purposes.`,
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		nodepoolContains, _ := cmd.Flags().GetString("nodepool-contains")
 
 		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
 			nameNotContains != "" || region != "" || version != ""
@@ -63,17 +65,31 @@ inventory and tracking purposes.`,
 		for _, clusterInfo := range clusterList {
 			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 
 			amiUsage, err := karpenter.GetAMIUsageWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Version)
 			if err != nil {
-				log.Printf("Warning: Failed to get AMI usage from cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get AMI usage from cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 
 			allAMIUsage = append(allAMIUsage, amiUsage...)
+		}
+
+		if nodepoolContains != "" {
+			filtered := allAMIUsage[:0]
+			for _, a := range allAMIUsage {
+				if strings.Contains(strings.ToLower(a.NodePoolName), strings.ToLower(nodepoolContains)) {
+					filtered = append(filtered, a)
+				}
+			}
+			allAMIUsage = filtered
 		}
 
 		printutils.PrintKarpenterAMIUsage(noHeaders, allAMIUsage...)
@@ -91,6 +107,7 @@ func init() {
 	karpenterAMICmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	karpenterAMICmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterAMICmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	karpenterAMICmd.Flags().StringP("nodepool-contains", "m", "", "Filter by NodePool name substring")
 
 	karpenterCmd.AddCommand(karpenterAMICmd)
 }

@@ -106,7 +106,9 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 		if !skipContextSwitch {
 			restConfig, err = GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 		} else {
@@ -117,14 +119,18 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 			)
 			restConfig, err = clientConfig.ClientConfig()
 			if err != nil {
-				log.Printf("Warning: Failed to get client config for cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get client config for cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 		}
 
 		nodeList, err := k8s.GetNodesWithConfig(restConfig)
 		if err != nil {
-			log.Printf("Warning: Failed to get nodes from cluster %s: %v", clusterInfo.ClusterName, err)
+			if verbose {
+				log.Printf("Warning: Failed to get nodes from cluster %s: %v", clusterInfo.ClusterName, err)
+			}
 			continue
 		}
 

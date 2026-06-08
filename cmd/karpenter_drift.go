@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/karpenter"
@@ -31,6 +32,7 @@ due to configuration changes, AMI updates, or other factors.`,
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		nodepoolContains, _ := cmd.Flags().GetString("nodepool-contains")
 
 		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
 			nameNotContains != "" || region != "" || version != ""
@@ -63,17 +65,31 @@ due to configuration changes, AMI updates, or other factors.`,
 		for _, clusterInfo := range clusterList {
 			restConfig, err := GetRestConfigForCluster(clusterInfo)
 			if err != nil {
-				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 
 			driftedResources, err := karpenter.GetDriftedResourcesWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
 			if err != nil {
-				log.Printf("Warning: Failed to get drifted resources from cluster %s: %v", clusterInfo.ClusterName, err)
+				if verbose {
+					log.Printf("Warning: Failed to get drifted resources from cluster %s: %v", clusterInfo.ClusterName, err)
+				}
 				continue
 			}
 
 			allDriftedResources = append(allDriftedResources, driftedResources...)
+		}
+
+		if nodepoolContains != "" {
+			filtered := allDriftedResources[:0]
+			for _, d := range allDriftedResources {
+				if strings.Contains(strings.ToLower(d.NodePoolName), strings.ToLower(nodepoolContains)) {
+					filtered = append(filtered, d)
+				}
+			}
+			allDriftedResources = filtered
 		}
 
 		printutils.PrintKarpenterDrift(noHeaders, allDriftedResources...)
@@ -91,6 +107,7 @@ func init() {
 	karpenterDriftCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	karpenterDriftCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterDriftCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	karpenterDriftCmd.Flags().StringP("nodepool-contains", "m", "", "Filter by NodePool name substring")
 
 	karpenterCmd.AddCommand(karpenterDriftCmd)
 }

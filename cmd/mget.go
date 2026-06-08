@@ -113,13 +113,17 @@ func runPodListing(clusterList []data.ClusterInfo, namespace string, allNamespac
 	for _, clusterInfo := range clusterList {
 		restConfig, err := GetRestConfigForCluster(clusterInfo)
 		if err != nil {
-			log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+			if verbose {
+				log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+			}
 			continue
 		}
 
 		k8sPodList, err := k8s.GetPodsWithConfig(restConfig, clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, clusterInfo.Arn, clusterInfo.Version, namespace, allNamespaces)
 		if err != nil {
-			log.Printf("Warning: Failed to get pods from cluster %s: %v", clusterInfo.ClusterName, err)
+			if verbose {
+				log.Printf("Warning: Failed to get pods from cluster %s: %v", clusterInfo.ClusterName, err)
+			}
 			continue
 		}
 

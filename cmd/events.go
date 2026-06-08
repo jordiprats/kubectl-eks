@@ -115,13 +115,17 @@ Without filters, queries the current cluster context.`,
 			for _, clusterInfo := range clusterList {
 				restConfig, err := GetRestConfigForCluster(clusterInfo)
 				if err != nil {
-					log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
+					if verbose {
+						log.Printf("Warning: Failed to get config for cluster %s: %v", clusterInfo.ClusterName, err)
+					}
 					continue
 				}
 
 				events, err := k8s.GetEventsWithConfig(context.Background(), restConfig, namespace)
 				if err != nil {
-					log.Printf("Warning: Failed to get events for cluster %s: %v", clusterInfo.ClusterName, err)
+					if verbose {
+						log.Printf("Warning: Failed to get events for cluster %s: %v", clusterInfo.ClusterName, err)
+					}
 					continue
 				}
 

@@ -42,6 +42,7 @@ kubectl-eks nodes [flags]
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for nodes
+  -m, --managed-by string             Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)
   -o, --output string                 Output format: wide
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
