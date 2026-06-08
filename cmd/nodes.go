@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
@@ -42,6 +43,7 @@ Without filters, queries the current cluster context.`,
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		output, _ := cmd.Flags().GetString("output")
+		managedByContains, _ := cmd.Flags().GetString("managed-by")
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -76,7 +78,7 @@ Without filters, queries the current cluster context.`,
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
-			runMultiClusterNodes(clusterList, noHeaders, output == "wide", false)
+			runMultiClusterNodes(clusterList, noHeaders, output == "wide", false, managedByContains)
 		} else {
 			// No filters - use current context directly
 			clusterInfo, err := GetCurrentClusterInfo()
@@ -84,12 +86,12 @@ Without filters, queries the current cluster context.`,
 				log.Fatalf("Error getting current cluster info: %v", err)
 			}
 			clusterList = []data.ClusterInfo{clusterInfo}
-			runMultiClusterNodes(clusterList, noHeaders, output == "wide", true)
+			runMultiClusterNodes(clusterList, noHeaders, output == "wide", true, managedByContains)
 		}
 	},
 }
 
-func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide bool, skipContextSwitch bool) {
+func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide bool, skipContextSwitch bool, managedByContains string) {
 	if len(clusterList) == 0 {
 		fmt.Println("No clusters found matching the specified filters")
 		return
@@ -136,6 +138,16 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 		}
 	}
 
+	if managedByContains != "" {
+		filtered := allNodes[:0]
+		for _, n := range allNodes {
+			if strings.Contains(strings.ToLower(n.Node.ManagedBy), strings.ToLower(managedByContains)) {
+				filtered = append(filtered, n)
+			}
+		}
+		allNodes = filtered
+	}
+
 	printutils.PrintMultiClusterNodes(noHeaders, wide, allNodes)
 
 	saveCacheToDisk()
@@ -151,6 +163,7 @@ func init() {
 	nodesCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	nodesCmd.Flags().StringP("output", "o", "", "Output format: wide")
+	nodesCmd.Flags().StringP("managed-by", "m", "", "Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)")
 
 	rootCmd.AddCommand(nodesCmd)
 }
