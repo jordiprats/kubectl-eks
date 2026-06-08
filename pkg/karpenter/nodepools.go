@@ -68,6 +68,11 @@ func getNodePoolsWithConfig(config *rest.Config, profile, region, clusterName st
 					}
 				}
 
+				// expireAfter lives here in Karpenter v1
+				if expireAfter, ok := nodeClassRef["expireAfter"].(string); ok {
+					info.ExpireAfter = expireAfter
+				}
+
 				// Requirements
 				if requirements, ok := nodeClassRef["requirements"].([]interface{}); ok {
 					for _, req := range requirements {
@@ -116,8 +121,11 @@ func getNodePoolsWithConfig(config *rest.Config, profile, region, clusterName st
 			if consolidation, ok := disruption["consolidationPolicy"].(string); ok {
 				info.ConsolidationMode = consolidation
 			}
-			if expireAfter, ok := disruption["expireAfter"].(string); ok {
-				info.ExpireAfter = expireAfter
+			// expireAfter fallback for Karpenter v1beta1 (v1 puts it in spec.template.spec)
+			if info.ExpireAfter == "" {
+				if expireAfter, ok := disruption["expireAfter"].(string); ok {
+					info.ExpireAfter = expireAfter
+				}
 			}
 		}
 

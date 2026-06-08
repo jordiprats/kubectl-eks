@@ -189,6 +189,7 @@ func runMCPServer() {
 	s.AddTool(
 		addClusterFilterProps(mcp.NewTool("get_nodes",
 			mcp.WithDescription("List Kubernetes nodes with instance type, status, CPU/memory capacity and usage, and pressure conditions. Without filters, queries the current cluster."),
+			mcp.WithString("managed_by", mcp.Description("Filter nodes by managed-by substring (e.g. 'karpenter', 'nodegroup', 'fargate'). Case-insensitive.")),
 		)),
 		handleGetNodes,
 	)
@@ -500,6 +501,7 @@ func handleUseCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 
 func handleGetNodes(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	filters := parseClusterFilters(request)
+	managedByContains := request.GetString("managed_by", "")
 
 	var output string
 	var errMsg string
@@ -532,6 +534,16 @@ func handleGetNodes(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 					Node:        node,
 				})
 			}
+		}
+
+		if managedByContains != "" {
+			filtered := allNodes[:0]
+			for _, n := range allNodes {
+				if strings.Contains(strings.ToLower(n.Node.ManagedBy), strings.ToLower(managedByContains)) {
+					filtered = append(filtered, n)
+				}
+			}
+			allNodes = filtered
 		}
 
 		if len(allNodes) == 0 {
