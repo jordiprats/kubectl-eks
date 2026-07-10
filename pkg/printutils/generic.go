@@ -401,37 +401,63 @@ func PrintJsonPathResults(noHeaders bool, results []data.JsonPathResult) {
 }
 
 func PrintInsights(noHeaders bool, insights ...data.EKSInsightInfo) {
-	// Sort the clusterInfos by ClusterName (you can customize the field for sorting)
+	multiCluster := false
+	if len(insights) > 0 {
+		first := insights[0].ClusterName
+		for _, ins := range insights[1:] {
+			if ins.ClusterName != first {
+				multiCluster = true
+				break
+			}
+		}
+	}
+
 	sort.Slice(insights, func(i, j int) bool {
+		if insights[i].Profile != insights[j].Profile {
+			return insights[i].Profile < insights[j].Profile
+		}
+		if insights[i].Region != insights[j].Region {
+			return insights[i].Region < insights[j].Region
+		}
+		if insights[i].ClusterName != insights[j].ClusterName {
+			return insights[i].ClusterName < insights[j].ClusterName
+		}
 		return insights[i].ID < insights[j].ID
 	})
 
-	// Create a table printer
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
-	// Create a Table object
-	table := &v1.Table{
-		ColumnDefinitions: []v1.TableColumnDefinition{
-			{Name: "ID", Type: "string"},
-			{Name: "CATEGORY", Type: "string"},
-			{Name: "STATUS", Type: "string"},
-			{Name: "REASON", Type: "string"},
-		},
+	columns := []v1.TableColumnDefinition{}
+	if multiCluster {
+		columns = append(columns,
+			v1.TableColumnDefinition{Name: "AWS PROFILE", Type: "string"},
+			v1.TableColumnDefinition{Name: "AWS REGION", Type: "string"},
+			v1.TableColumnDefinition{Name: "CLUSTER NAME", Type: "string"},
+		)
 	}
+	columns = append(columns,
+		v1.TableColumnDefinition{Name: "ID", Type: "string"},
+		v1.TableColumnDefinition{Name: "CATEGORY", Type: "string"},
+		v1.TableColumnDefinition{Name: "STATUS", Type: "string"},
+		v1.TableColumnDefinition{Name: "REASON", Type: "string"},
+	)
 
-	// Populate rows with data from the variadic ClusterInfo
+	table := &v1.Table{ColumnDefinitions: columns}
+
 	for _, eachInsight := range insights {
-		table.Rows = append(table.Rows, v1.TableRow{
-			Cells: []interface{}{
-				eachInsight.ID,
-				eachInsight.Category,
-				eachInsight.Status,
-				eachInsight.Reason,
-			},
-		})
+		cells := []interface{}{}
+		if multiCluster {
+			cells = append(cells, eachInsight.Profile, eachInsight.Region, eachInsight.ClusterName)
+		}
+		cells = append(cells,
+			eachInsight.ID,
+			eachInsight.Category,
+			eachInsight.Status,
+			eachInsight.Reason,
+		)
+		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 
-	// Print the table
 	err := printer.PrintObj(table, os.Stdout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error printing table: %v\n", err)
@@ -440,35 +466,56 @@ func PrintInsights(noHeaders bool, insights ...data.EKSInsightInfo) {
 }
 
 func PrintStacks(noHeaders bool, stackList ...cf.StackInfo) {
-	// Sort the clusterInfos by ClusterName (you can customize the field for sorting)
+	multiCluster := false
+	if len(stackList) > 0 {
+		first := stackList[0].ClusterName
+		for _, s := range stackList[1:] {
+			if s.ClusterName != first {
+				multiCluster = true
+				break
+			}
+		}
+	}
+
 	sort.Slice(stackList, func(i, j int) bool {
+		if stackList[i].Profile != stackList[j].Profile {
+			return stackList[i].Profile < stackList[j].Profile
+		}
+		if stackList[i].Region != stackList[j].Region {
+			return stackList[i].Region < stackList[j].Region
+		}
+		if stackList[i].ClusterName != stackList[j].ClusterName {
+			return stackList[i].ClusterName < stackList[j].ClusterName
+		}
 		return stackList[i].Name < stackList[j].Name
 	})
 
-	// Create a table printer
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
-	// Create a Table object
-	table := &v1.Table{
-		ColumnDefinitions: []v1.TableColumnDefinition{
-			// {Name: "AWS ACCOUNT ID", Type: "string"},
-			{Name: "NAME", Type: "string"},
-			{Name: "STATUS", Type: "string"},
-		},
+	columns := []v1.TableColumnDefinition{}
+	if multiCluster {
+		columns = append(columns,
+			v1.TableColumnDefinition{Name: "AWS PROFILE", Type: "string"},
+			v1.TableColumnDefinition{Name: "AWS REGION", Type: "string"},
+			v1.TableColumnDefinition{Name: "CLUSTER NAME", Type: "string"},
+		)
 	}
+	columns = append(columns,
+		v1.TableColumnDefinition{Name: "NAME", Type: "string"},
+		v1.TableColumnDefinition{Name: "STATUS", Type: "string"},
+	)
 
-	// Populate rows with data from the variadic ClusterInfo
+	table := &v1.Table{ColumnDefinitions: columns}
+
 	for _, stackInfo := range stackList {
-		table.Rows = append(table.Rows, v1.TableRow{
-			Cells: []interface{}{
-				// clusterInfo.AWSAccountID,
-				stackInfo.Name,
-				stackInfo.Status,
-			},
-		})
+		cells := []interface{}{}
+		if multiCluster {
+			cells = append(cells, stackInfo.Profile, stackInfo.Region, stackInfo.ClusterName)
+		}
+		cells = append(cells, stackInfo.Name, stackInfo.Status)
+		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 
-	// Print the table
 	err := printer.PrintObj(table, os.Stdout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error printing table: %v\n", err)
@@ -477,35 +524,61 @@ func PrintStacks(noHeaders bool, stackList ...cf.StackInfo) {
 }
 
 func PrintUpdates(noHeaders bool, updateList ...eks.EKSUpdateInfo) {
-	// Sort the clusterInfos by ClusterName (you can customize the field for sorting)
+	multiCluster := false
+	if len(updateList) > 0 {
+		first := updateList[0].ClusterName
+		for _, u := range updateList[1:] {
+			if u.ClusterName != first {
+				multiCluster = true
+				break
+			}
+		}
+	}
+
 	sort.Slice(updateList, func(i, j int) bool {
+		if updateList[i].Profile != updateList[j].Profile {
+			return updateList[i].Profile < updateList[j].Profile
+		}
+		if updateList[i].Region != updateList[j].Region {
+			return updateList[i].Region < updateList[j].Region
+		}
+		if updateList[i].ClusterName != updateList[j].ClusterName {
+			return updateList[i].ClusterName < updateList[j].ClusterName
+		}
 		return updateList[i].Type < updateList[j].Type
 	})
 
-	// Create a table printer
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
-	// Create a Table object
-	table := &v1.Table{
-		ColumnDefinitions: []v1.TableColumnDefinition{
-			{Name: "TYPE", Type: "string"},
-			{Name: "STATUS", Type: "string"},
-			{Name: "ERRORS", Type: "string"},
-		},
+	columns := []v1.TableColumnDefinition{}
+	if multiCluster {
+		columns = append(columns,
+			v1.TableColumnDefinition{Name: "AWS PROFILE", Type: "string"},
+			v1.TableColumnDefinition{Name: "AWS REGION", Type: "string"},
+			v1.TableColumnDefinition{Name: "CLUSTER NAME", Type: "string"},
+		)
 	}
+	columns = append(columns,
+		v1.TableColumnDefinition{Name: "TYPE", Type: "string"},
+		v1.TableColumnDefinition{Name: "STATUS", Type: "string"},
+		v1.TableColumnDefinition{Name: "ERRORS", Type: "string"},
+	)
 
-	// Populate rows with data from the variadic ClusterInfo
+	table := &v1.Table{ColumnDefinitions: columns}
+
 	for _, eachUpdate := range updateList {
-		table.Rows = append(table.Rows, v1.TableRow{
-			Cells: []interface{}{
-				eachUpdate.Type,
-				eachUpdate.Status,
-				strings.Join(eachUpdate.Errors, ", "),
-			},
-		})
+		cells := []interface{}{}
+		if multiCluster {
+			cells = append(cells, eachUpdate.Profile, eachUpdate.Region, eachUpdate.ClusterName)
+		}
+		cells = append(cells,
+			eachUpdate.Type,
+			eachUpdate.Status,
+			strings.Join(eachUpdate.Errors, ", "),
+		)
+		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 
-	// Print the table
 	err := printer.PrintObj(table, os.Stdout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error printing table: %v\n", err)

@@ -94,6 +94,11 @@ Without filters, queries the current cluster context.`,
 				fmt.Fprintf(log.Writer(), "Error getting CF stacks for cluster %s: %v\n", clusterInfo.ClusterName, err)
 				continue
 			}
+			for i := range stackList {
+				stackList[i].Profile = clusterInfo.AWSProfile
+				stackList[i].Region = clusterInfo.Region
+				stackList[i].ClusterName = clusterInfo.ClusterName
+			}
 			allStacks = append(allStacks, stackList...)
 		}
 

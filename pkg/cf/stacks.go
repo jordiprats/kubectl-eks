@@ -11,8 +11,11 @@ import (
 )
 
 type StackInfo struct {
-	Name   string
-	Status string
+	Profile     string
+	Region      string
+	ClusterName string
+	Name        string
+	Status      string
 }
 
 // Client wraps the CloudFormation API for easier testing
