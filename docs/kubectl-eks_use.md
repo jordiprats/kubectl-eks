@@ -39,6 +39,7 @@ kubectl-eks use [cluster-name-or-arn] [flags]
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
   -u, --refresh                       Refresh data from AWS
   -r, --region string                 Filter by AWS region
+      --switch string                 Switch to the counterpart cluster by dimension: side or region
   -v, --version string                Filter by EKS version
 ```
 

@@ -10,9 +10,12 @@ import (
 )
 
 type EKSUpdateInfo struct {
-	Type   string
-	Status string
-	Errors []string
+	Profile     string
+	Region      string
+	ClusterName string
+	Type        string
+	Status      string
+	Errors      []string
 }
 
 func GetEKSUpdates(profile, region, clusterName string) ([]EKSUpdateInfo, error) {

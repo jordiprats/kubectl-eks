@@ -88,6 +88,11 @@ Without filters, queries the current cluster context.`,
 					fmt.Fprintf(log.Writer(), "Error getting insights for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
 					continue
 				}
+				for i := range insightsList {
+					insightsList[i].Profile = clusterInfo.AWSProfile
+					insightsList[i].Region = clusterInfo.Region
+					insightsList[i].ClusterName = clusterInfo.ClusterName
+				}
 				allInsights = append(allInsights, insightsList...)
 			}
 			printutils.PrintInsights(noHeaders, allInsights...)

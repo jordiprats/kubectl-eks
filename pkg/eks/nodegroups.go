@@ -11,6 +11,9 @@ import (
 )
 
 type EKSNodeGroupInfo struct {
+	Profile         string
+	Region          string
+	ClusterName     string
 	Name            string
 	CapacityType    string
 	ReleaseVersion  string
@@ -83,6 +86,9 @@ func GetEKSNodeGroups(profile, region, clusterName string) ([]EKSNodeGroupInfo, 
 		}
 
 		ngList[i] = EKSNodeGroupInfo{
+			Profile:         profile,
+			Region:          region,
+			ClusterName:     clusterName,
 			Name:            ng,
 			CapacityType:    string(ngDesc.Nodegroup.CapacityType),
 			ReleaseVersion:  aws.ToString(ngDesc.Nodegroup.ReleaseVersion),

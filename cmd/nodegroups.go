@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/ec2"
@@ -41,11 +44,18 @@ Without filters, queries the current cluster context.`,
   kubectl eks nodegroups --region us-west-2
 
   # Combine filters
-  kubectl eks nodegroups -q genprod -c v2-b -x orch -r us-west-2`,
+  kubectl eks nodegroups -q genprod -c v2-b -x orch -r us-west-2
+
+  # Watch nodegroups (refresh every 30s by default)
+  kubectl eks nodegroups -w
+
+  # Watch with custom interval
+  kubectl eks nodegroups -w 5s`,
 	Run: func(cmd *cobra.Command, args []string) {
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		ami, _ := cmd.Flags().GetString("ami")
+		watchInterval, _ := cmd.Flags().GetDuration("watch")
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -55,6 +65,10 @@ Without filters, queries the current cluster context.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+
+		if watchInterval > 0 && !printutils.IsTTY() {
+			log.Fatal("--watch requires an interactive terminal")
+		}
 
 		// Check if any filter is specified
 		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
@@ -101,6 +115,49 @@ Without filters, queries the current cluster context.`,
 				}
 				printutils.PrintAMIs(noHeaders, *amiInfo)
 			}
+		} else if watchInterval > 0 {
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+			fetchAndPrint := func() {
+				allNodeGroups := []eks.EKSNodeGroupInfo{}
+				for _, clusterInfo := range clusterList {
+					clusterNGList, err := eks.GetEKSNodeGroups(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
+					if err != nil {
+						continue
+					}
+					allNodeGroups = append(allNodeGroups, clusterNGList...)
+				}
+
+				multiCluster := false
+				if len(allNodeGroups) > 0 {
+					first := allNodeGroups[0].ClusterName
+					for _, ng := range allNodeGroups[1:] {
+						if ng.ClusterName != first {
+							multiCluster = true
+							break
+						}
+					}
+				}
+
+				printutils.ClearScreen()
+				fmt.Printf("Every %s: kubectl eks nodegroups (last: %s)\n\n", watchInterval, time.Now().Format("15:04:05"))
+				printutils.PrintNodeGroupColored(multiCluster, allNodeGroups...)
+			}
+
+			fetchAndPrint()
+			ticker := time.NewTicker(watchInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-sigCh:
+					fmt.Println()
+					return
+				case <-ticker.C:
+					fetchAndPrint()
+				}
+			}
 		} else {
 			allNodeGroups := []eks.EKSNodeGroupInfo{}
 			for _, clusterInfo := range clusterList {
@@ -123,6 +180,8 @@ Without filters, queries the current cluster context.`,
 func init() {
 	nodegroupsCmd.Flags().StringP("ami", "a", "", "Describe AMI used by the nodegroup")
 	nodegroupsCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
+	nodegroupsCmd.Flags().DurationP("watch", "w", 0, "Watch mode: refresh every interval (default 30s, e.g. -w 5s)")
+	nodegroupsCmd.Flags().Lookup("watch").NoOptDefVal = "30s"
 	nodegroupsCmd.Flags().StringP("profile", "p", "", "Filter by exact AWS profile name (account)")
 	nodegroupsCmd.Flags().StringP("profile-contains", "q", "", "Filter by AWS profile name (account) substring")
 	nodegroupsCmd.Flags().StringP("profile-not-contains", "Q", "", "Exclude profiles whose name contains this substring")

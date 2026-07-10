@@ -77,6 +77,11 @@ Without filters, queries the current cluster context.`,
 				fmt.Fprintf(log.Writer(), "Error listing Fargate profiles for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
 				continue
 			}
+			for i := range profileList {
+				profileList[i].Profile = clusterInfo.AWSProfile
+				profileList[i].Region = clusterInfo.Region
+				profileList[i].ClusterName = clusterInfo.ClusterName
+			}
 			allProfiles = append(allProfiles, profileList...)
 		}
 

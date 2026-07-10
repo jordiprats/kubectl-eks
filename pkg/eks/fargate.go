@@ -10,6 +10,9 @@ import (
 )
 
 type FargateProfileInfo struct {
+	Profile        string
+	Region         string
+	ClusterName    string
 	Name           string
 	Status         string
 	PodExecRoleArn string

@@ -122,6 +122,9 @@ type CategorySpecificSummary struct {
 }
 
 type EKSInsightInfo struct {
+	Profile        string
+	Region         string
+	ClusterName    string
 	ID             string
 	Description    string
 	Category       string

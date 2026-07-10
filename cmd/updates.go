@@ -78,6 +78,11 @@ Without filters, queries the current cluster context.`,
 				fmt.Fprintf(log.Writer(), "Error listing updates for cluster %s: %s\n", clusterInfo.ClusterName, err.Error())
 				continue
 			}
+			for i := range updateList {
+				updateList[i].Profile = clusterInfo.AWSProfile
+				updateList[i].Region = clusterInfo.Region
+				updateList[i].ClusterName = clusterInfo.ClusterName
+			}
 			allUpdates = append(allUpdates, updateList...)
 		}
 

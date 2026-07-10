@@ -85,3 +85,97 @@ func TestPrintSwitchSuccess_ARN(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeSwitchMode(t *testing.T) {
+	mode, err := normalizeSwitchMode("side")
+	require.NoError(t, err)
+	assert.Equal(t, "side", mode)
+
+	mode, err = normalizeSwitchMode("  REGION ")
+	require.NoError(t, err)
+	assert.Equal(t, "region", mode)
+
+	mode, err = normalizeSwitchMode("")
+	require.NoError(t, err)
+	assert.Equal(t, "", mode)
+
+	_, err = normalizeSwitchMode("zone")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid --switch value")
+}
+
+func TestChooseSideSwitchCluster_Success(t *testing.T) {
+	current := data.ClusterInfo{ClusterName: "ecomm-eks-v2-a", AWSProfile: "prod", Region: "us-east-1"}
+	clusters := []data.ClusterInfo{
+		{ClusterName: "ecomm-eks-v2-a", AWSProfile: "prod", Region: "us-east-1", Arn: "arn:a"},
+		{ClusterName: "ecomm-eks-v2-b", AWSProfile: "prod", Region: "us-east-1", Arn: "arn:b"},
+		{ClusterName: "ecomm-eks-v2-a", AWSProfile: "prod", Region: "us-west-2", Arn: "arn:c"},
+	}
+
+	target, err := chooseSideSwitchCluster(current, clusters)
+	require.NoError(t, err)
+	assert.Equal(t, "ecomm-eks-v2-b", target.ClusterName)
+	assert.Equal(t, "us-east-1", target.Region)
+}
+
+func TestChooseSideSwitchCluster_MissingCounterpart(t *testing.T) {
+	current := data.ClusterInfo{ClusterName: "auth-cluster-a", AWSProfile: "prod", Region: "us-east-1"}
+	clusters := []data.ClusterInfo{
+		{ClusterName: "auth-cluster-a", AWSProfile: "prod", Region: "us-east-1"},
+	}
+
+	_, err := chooseSideSwitchCluster(current, clusters)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "counterpart side does not exist")
+}
+
+func TestChooseSideSwitchCluster_TooManySides(t *testing.T) {
+	current := data.ClusterInfo{ClusterName: "auth-cluster-a", AWSProfile: "prod", Region: "us-east-1"}
+	clusters := []data.ClusterInfo{
+		{ClusterName: "auth-cluster-a", AWSProfile: "prod", Region: "us-east-1"},
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-east-1"},
+		{ClusterName: "auth-cluster-c", AWSProfile: "prod", Region: "us-east-1"},
+	}
+
+	_, err := chooseSideSwitchCluster(current, clusters)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "more than two side variants")
+}
+
+func TestChooseRegionSwitchCluster_Success(t *testing.T) {
+	current := data.ClusterInfo{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-west-2"}
+	clusters := []data.ClusterInfo{
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-east-1", Arn: "arn:e1"},
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-west-2", Arn: "arn:w2"},
+		{ClusterName: "other", AWSProfile: "prod", Region: "us-east-1", Arn: "arn:o"},
+	}
+
+	target, err := chooseRegionSwitchCluster(current, clusters)
+	require.NoError(t, err)
+	assert.Equal(t, "us-east-1", target.Region)
+	assert.Equal(t, "auth-cluster-b", target.ClusterName)
+}
+
+func TestChooseRegionSwitchCluster_MissingCounterpart(t *testing.T) {
+	current := data.ClusterInfo{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-west-2"}
+	clusters := []data.ClusterInfo{
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-west-2"},
+	}
+
+	_, err := chooseRegionSwitchCluster(current, clusters)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "counterpart region does not exist")
+}
+
+func TestChooseRegionSwitchCluster_TooManyRegions(t *testing.T) {
+	current := data.ClusterInfo{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-west-2"}
+	clusters := []data.ClusterInfo{
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-east-1"},
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "us-west-2"},
+		{ClusterName: "auth-cluster-b", AWSProfile: "prod", Region: "eu-west-1"},
+	}
+
+	_, err := chooseRegionSwitchCluster(current, clusters)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "more than two regions")
+}
