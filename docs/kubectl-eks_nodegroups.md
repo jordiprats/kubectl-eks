@@ -38,6 +38,12 @@ kubectl-eks nodegroups [flags]
 
   # Combine filters
   kubectl eks nodegroups -q genprod -c v2-b -x orch -r us-west-2
+
+  # Watch nodegroups (refresh every 30s by default)
+  kubectl eks nodegroups -w
+
+  # Watch with custom interval
+  kubectl eks nodegroups -w 5s
 ```
 
 ### Options
@@ -53,6 +59,7 @@ kubectl-eks nodegroups [flags]
   -u, --refresh                       Do not use cached data, refresh from AWS
   -r, --region string                 Filter by AWS region
   -v, --version string                Filter by EKS version
+  -w, --watch duration[=30s]          Watch mode: refresh every interval (default 30s, e.g. -w 5s)
 ```
 
 ### Options inherited from parent commands
