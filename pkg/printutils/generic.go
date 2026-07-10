@@ -554,8 +554,29 @@ func PrintAMIs(noHeaders bool, amiInfos ...data.AMIInfo) {
 }
 
 func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
-	// Sort the clusterInfos by ClusterName (you can customize the field for sorting)
+	// Determine if multiple clusters are present
+	multiCluster := false
+	if len(ngInfo) > 0 {
+		first := ngInfo[0].ClusterName
+		for _, ng := range ngInfo[1:] {
+			if ng.ClusterName != first {
+				multiCluster = true
+				break
+			}
+		}
+	}
+
+	// Sort by Profile, Region, ClusterName, Name
 	sort.Slice(ngInfo, func(i, j int) bool {
+		if ngInfo[i].Profile != ngInfo[j].Profile {
+			return ngInfo[i].Profile < ngInfo[j].Profile
+		}
+		if ngInfo[i].Region != ngInfo[j].Region {
+			return ngInfo[i].Region < ngInfo[j].Region
+		}
+		if ngInfo[i].ClusterName != ngInfo[j].ClusterName {
+			return ngInfo[i].ClusterName < ngInfo[j].ClusterName
+		}
 		return ngInfo[i].Name < ngInfo[j].Name
 	})
 
@@ -563,37 +584,48 @@ func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
 	// Create a Table object
-	table := &v1.Table{
-		ColumnDefinitions: []v1.TableColumnDefinition{
-			{Name: "NAME", Type: "string"},
-			{Name: "CAPACITY TYPE", Type: "string"},
-			{Name: "RELEASE VERSION", Type: "string"},
-			{Name: "LAUNCH TEMPLATE", Type: "string"},
-			{Name: "INSTANCE TYPE", Type: "string"},
-			{Name: "DESIRED CAPACITY", Type: "string"},
-			{Name: "MAX CAPACITY", Type: "string"},
-			{Name: "MIN CAPACITY", Type: "string"},
-			{Name: "VERSION", Type: "string"},
-			{Name: "STATUS", Type: "string"},
-		},
+	columns := []v1.TableColumnDefinition{}
+	if multiCluster {
+		columns = append(columns,
+			v1.TableColumnDefinition{Name: "AWS PROFILE", Type: "string"},
+			v1.TableColumnDefinition{Name: "AWS REGION", Type: "string"},
+			v1.TableColumnDefinition{Name: "CLUSTER NAME", Type: "string"},
+		)
 	}
+	columns = append(columns,
+		v1.TableColumnDefinition{Name: "NAME", Type: "string"},
+		v1.TableColumnDefinition{Name: "CAPACITY TYPE", Type: "string"},
+		v1.TableColumnDefinition{Name: "RELEASE VERSION", Type: "string"},
+		v1.TableColumnDefinition{Name: "LAUNCH TEMPLATE", Type: "string"},
+		v1.TableColumnDefinition{Name: "INSTANCE TYPE", Type: "string"},
+		v1.TableColumnDefinition{Name: "DESIRED CAPACITY", Type: "string"},
+		v1.TableColumnDefinition{Name: "MAX CAPACITY", Type: "string"},
+		v1.TableColumnDefinition{Name: "MIN CAPACITY", Type: "string"},
+		v1.TableColumnDefinition{Name: "VERSION", Type: "string"},
+		v1.TableColumnDefinition{Name: "STATUS", Type: "string"},
+	)
 
-	// Populate rows with data from the variadic ClusterInfo
+	table := &v1.Table{ColumnDefinitions: columns}
+
+	// Populate rows
 	for _, eachNG := range ngInfo {
-		table.Rows = append(table.Rows, v1.TableRow{
-			Cells: []interface{}{
-				eachNG.Name,
-				eachNG.CapacityType,
-				eachNG.ReleaseVersion,
-				eachNG.LaunchTemplate,
-				eachNG.InstanceType,
-				eachNG.DesiredCapacity,
-				eachNG.MaxCapacity,
-				eachNG.MinCapacity,
-				eachNG.Version,
-				eachNG.Status,
-			},
-		})
+		cells := []interface{}{}
+		if multiCluster {
+			cells = append(cells, eachNG.Profile, eachNG.Region, eachNG.ClusterName)
+		}
+		cells = append(cells,
+			eachNG.Name,
+			eachNG.CapacityType,
+			eachNG.ReleaseVersion,
+			eachNG.LaunchTemplate,
+			eachNG.InstanceType,
+			eachNG.DesiredCapacity,
+			eachNG.MaxCapacity,
+			eachNG.MinCapacity,
+			eachNG.Version,
+			eachNG.Status,
+		)
+		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 
 	// Print the table

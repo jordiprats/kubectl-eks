@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,6 +17,157 @@ import (
 )
 
 var useCmdCommentPrefix string
+
+func normalizeSwitchMode(raw string) (string, error) {
+	mode := strings.ToLower(strings.TrimSpace(raw))
+	if mode == "" {
+		return "", nil
+	}
+
+	if mode != "side" && mode != "region" {
+		return "", fmt.Errorf("invalid --switch value %q (allowed: side, region)", raw)
+	}
+
+	return mode, nil
+}
+
+func chooseSideSwitchCluster(current data.ClusterInfo, clusterList []data.ClusterInfo) (*data.ClusterInfo, error) {
+	if current.ClusterName == "" {
+		return nil, fmt.Errorf("current cluster name is empty")
+	}
+
+	sideRe := regexp.MustCompile(`^(.*)-([a-z])$`)
+	currentMatch := sideRe.FindStringSubmatch(current.ClusterName)
+	if currentMatch == nil {
+		return nil, fmt.Errorf("cluster %q does not end with a side suffix like -a or -b", current.ClusterName)
+	}
+
+	prefix := currentMatch[1]
+	currentSide := currentMatch[2]
+
+	siblings := make([]data.ClusterInfo, 0)
+	seenNames := make(map[string]struct{})
+	for _, cluster := range clusterList {
+		if cluster.AWSProfile != current.AWSProfile || cluster.Region != current.Region {
+			continue
+		}
+
+		m := sideRe.FindStringSubmatch(cluster.ClusterName)
+		if m == nil || m[1] != prefix {
+			continue
+		}
+
+		if _, exists := seenNames[cluster.ClusterName]; exists {
+			continue
+		}
+		seenNames[cluster.ClusterName] = struct{}{}
+		siblings = append(siblings, cluster)
+	}
+
+	if len(siblings) < 2 {
+		return nil, fmt.Errorf("unable to switch side for %q: counterpart side does not exist in profile %q region %q", current.ClusterName, current.AWSProfile, current.Region)
+	}
+
+	if len(siblings) > 2 {
+		names := make([]string, 0, len(siblings))
+		for _, sibling := range siblings {
+			names = append(names, sibling.ClusterName)
+		}
+		sort.Strings(names)
+		return nil, fmt.Errorf("unable to switch side for %q: found more than two side variants (%s)", current.ClusterName, strings.Join(names, ", "))
+	}
+
+	sideToCluster := make(map[string]data.ClusterInfo, len(siblings))
+	for _, sibling := range siblings {
+		m := sideRe.FindStringSubmatch(sibling.ClusterName)
+		sideToCluster[m[2]] = sibling
+	}
+
+	if len(sideToCluster) != 2 {
+		return nil, fmt.Errorf("unable to switch side for %q: side variants must be distinct", current.ClusterName)
+	}
+
+	_, hasA := sideToCluster["a"]
+	_, hasB := sideToCluster["b"]
+	if !hasA || !hasB {
+		sides := make([]string, 0, len(sideToCluster))
+		for side := range sideToCluster {
+			sides = append(sides, side)
+		}
+		sort.Strings(sides)
+		return nil, fmt.Errorf("unable to switch side for %q: expected exactly sides a and b, found %s", current.ClusterName, strings.Join(sides, ", "))
+	}
+
+	if currentSide == "a" {
+		counterpart := sideToCluster["b"]
+		return &counterpart, nil
+	}
+
+	if currentSide == "b" {
+		counterpart := sideToCluster["a"]
+		return &counterpart, nil
+	}
+
+	return nil, fmt.Errorf("unable to switch side for %q: only side suffixes -a and -b are supported", current.ClusterName)
+}
+
+func chooseRegionSwitchCluster(current data.ClusterInfo, clusterList []data.ClusterInfo) (*data.ClusterInfo, error) {
+	if current.ClusterName == "" {
+		return nil, fmt.Errorf("current cluster name is empty")
+	}
+
+	regionToCluster := make(map[string]data.ClusterInfo)
+	for _, cluster := range clusterList {
+		if cluster.AWSProfile != current.AWSProfile || cluster.ClusterName != current.ClusterName {
+			continue
+		}
+
+		if cluster.Region == "" {
+			continue
+		}
+
+		regionToCluster[cluster.Region] = cluster
+	}
+
+	if len(regionToCluster) < 2 {
+		return nil, fmt.Errorf("unable to switch region for %q: counterpart region does not exist in profile %q", current.ClusterName, current.AWSProfile)
+	}
+
+	if len(regionToCluster) > 2 {
+		regions := make([]string, 0, len(regionToCluster))
+		for region := range regionToCluster {
+			regions = append(regions, region)
+		}
+		sort.Strings(regions)
+		return nil, fmt.Errorf("unable to switch region for %q: found more than two regions (%s)", current.ClusterName, strings.Join(regions, ", "))
+	}
+
+	if _, exists := regionToCluster[current.Region]; !exists {
+		return nil, fmt.Errorf("unable to switch region for %q: current region %q was not found among candidates", current.ClusterName, current.Region)
+	}
+
+	for region, cluster := range regionToCluster {
+		if region != current.Region {
+			counterpart := cluster
+			return &counterpart, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unable to switch region for %q: counterpart region does not exist", current.ClusterName)
+}
+
+func resolveClusterForSwitch(current data.ClusterInfo, switchMode string, refresh bool) (*data.ClusterInfo, error) {
+	clusterList, err := LoadClusterList([]string{}, current.AWSProfile, "", "", "", "", "", "", refresh)
+	if err != nil {
+		return nil, err
+	}
+
+	if switchMode == "side" {
+		return chooseSideSwitchCluster(current, clusterList)
+	}
+
+	return chooseRegionSwitchCluster(current, clusterList)
+}
 
 func selectClusterByAge(clusterList []data.ClusterInfo, useOldest bool) (*data.ClusterInfo, error) {
 	if len(clusterList) == 0 {
@@ -436,6 +588,17 @@ profile for authentication.`,
 			newest = false
 		}
 
+		switchModeRaw, err := cmd.Flags().GetString("switch")
+		if err != nil {
+			switchModeRaw = ""
+		}
+
+		switchMode, err := normalizeSwitchMode(switchModeRaw)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+
 		comment, err := cmd.Flags().GetBool("bash-comment")
 		if err != nil {
 			comment = false
@@ -444,6 +607,47 @@ profile for authentication.`,
 			useCmdCommentPrefix = "# "
 		} else {
 			useCmdCommentPrefix = ""
+		}
+
+		if switchMode != "" {
+			if oldest || newest {
+				fmt.Println("--switch cannot be combined with --oldest or --newest")
+				os.Exit(1)
+			}
+
+			var baseCluster data.ClusterInfo
+			if target == "" {
+				current, currentErr := GetCurrentClusterInfo()
+				if currentErr != nil {
+					fmt.Printf("failed to resolve current cluster for --switch: %s\n", currentErr.Error())
+					os.Exit(1)
+				}
+				baseCluster = current
+			} else {
+				resolved, ambiguousMatches, resolveErr := resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
+				if resolveErr != nil {
+					if len(ambiguousMatches) > 1 {
+						printAmbiguousSelectionHelp(target, ambiguousMatches)
+					} else {
+						fmt.Println(resolveErr.Error())
+					}
+					os.Exit(1)
+				}
+				baseCluster = *resolved
+			}
+
+			if profile != "" {
+				baseCluster.AWSProfile = profile
+			}
+
+			targetCluster, switchErr := resolveClusterForSwitch(baseCluster, switchMode, refresh)
+			if switchErr != nil {
+				fmt.Println(switchErr.Error())
+				os.Exit(1)
+			}
+
+			switchClusterWithInfo(targetCluster, namespace, profile)
+			return
 		}
 
 		// Fast path: try to reuse an existing kubeconfig context without
@@ -479,6 +683,7 @@ func init() {
 	useCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	useCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	useCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	useCmd.Flags().String("switch", "", "Switch to the counterpart cluster by dimension: side or region")
 	useCmd.Flags().Bool("oldest", false, "When multiple clusters match, switch to the oldest cluster")
 	useCmd.Flags().Bool("newest", false, "When multiple clusters match, switch to the newest cluster")
 	useCmd.Flags().Bool("bash-comment", false, "Prefix output with '# ' so it looks like a bash comment")
