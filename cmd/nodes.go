@@ -3,7 +3,11 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
@@ -44,6 +48,7 @@ Without filters, queries the current cluster context.`,
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		output, _ := cmd.Flags().GetString("output")
 		managedByContains, _ := cmd.Flags().GetString("managed-by")
+		watchInterval, _ := cmd.Flags().GetDuration("watch")
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -54,11 +59,16 @@ Without filters, queries the current cluster context.`,
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
 
+		if watchInterval > 0 && !printutils.IsTTY() {
+			log.Fatal("--watch requires an interactive terminal")
+		}
+
 		// Check if any filter is specified
 		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
 			nameNotContains != "" || region != "" || version != ""
 
 		var clusterList []data.ClusterInfo
+		skipContextSwitch := false
 
 		if hasFilters {
 			// Ensure cache is initialized before LoadClusterList
@@ -78,25 +88,46 @@ Without filters, queries the current cluster context.`,
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
-			runMultiClusterNodes(clusterList, noHeaders, output == "wide", false, managedByContains)
 		} else {
-			// No filters - use current context directly
 			clusterInfo, err := GetCurrentClusterInfo()
 			if err != nil {
 				log.Fatalf("Error getting current cluster info: %v", err)
 			}
 			clusterList = []data.ClusterInfo{clusterInfo}
-			runMultiClusterNodes(clusterList, noHeaders, output == "wide", true, managedByContains)
+			skipContextSwitch = true
+		}
+
+		if watchInterval > 0 {
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+			fetchAndPrint := func() {
+				allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains)
+				printutils.ClearScreen()
+				fmt.Printf("Every %s: kubectl eks nodes (last: %s)\n\n", watchInterval, time.Now().Format("15:04:05"))
+				printutils.PrintMultiClusterNodesColored(output == "wide", allNodes)
+			}
+
+			fetchAndPrint()
+			ticker := time.NewTicker(watchInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-sigCh:
+					fmt.Println()
+					return
+				case <-ticker.C:
+					fetchAndPrint()
+				}
+			}
+		} else {
+			runMultiClusterNodes(clusterList, noHeaders, output == "wide", skipContextSwitch, managedByContains)
 		}
 	},
 }
 
-func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide bool, skipContextSwitch bool, managedByContains string) {
-	if len(clusterList) == 0 {
-		fmt.Println("No clusters found matching the specified filters")
-		return
-	}
-
+func collectNodes(clusterList []data.ClusterInfo, skipContextSwitch bool, managedByContains string) []data.ClusterNodeInfo {
 	allNodes := []data.ClusterNodeInfo{}
 
 	for _, clusterInfo := range clusterList {
@@ -112,7 +143,6 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 				continue
 			}
 		} else {
-			// Use current context directly
 			clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 				clientcmd.NewDefaultClientConfigLoadingRules(),
 				&clientcmd.ConfigOverrides{},
@@ -154,8 +184,17 @@ func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide b
 		allNodes = filtered
 	}
 
-	printutils.PrintMultiClusterNodes(noHeaders, wide, allNodes)
+	return allNodes
+}
 
+func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide bool, skipContextSwitch bool, managedByContains string) {
+	if len(clusterList) == 0 {
+		fmt.Println("No clusters found matching the specified filters")
+		return
+	}
+
+	allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains)
+	printutils.PrintMultiClusterNodes(noHeaders, wide, allNodes)
 	saveCacheToDisk()
 }
 
@@ -170,6 +209,8 @@ func init() {
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	nodesCmd.Flags().StringP("output", "o", "", "Output format: wide")
 	nodesCmd.Flags().StringP("managed-by", "m", "", "Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)")
+	nodesCmd.Flags().DurationP("watch", "w", 0, "Watch mode: refresh every interval (default 30s, e.g. -w 5s)")
+	nodesCmd.Flags().Lookup("watch").NoOptDefVal = "30s"
 
 	rootCmd.AddCommand(nodesCmd)
 }

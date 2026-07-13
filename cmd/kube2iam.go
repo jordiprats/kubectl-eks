@@ -12,7 +12,7 @@ import (
 
 var kube2iamCmd = &cobra.Command{
 	Use:     "kube2iam",
-	Aliases: []string{"k2iam"},
+	Aliases: []string{"k2iam", "k2i"},
 	Short:   "List pods with kube2iam annotations and their IAM roles",
 	Long: `List pods with kube2iam annotations and their associated IAM role ARNs.
 

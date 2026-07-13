@@ -3,6 +3,10 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/jordiprats/kubectl-eks/pkg/cf"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
@@ -29,6 +33,7 @@ Without filters, queries the current cluster context.`,
 		paramFilter, _ := cmd.Flags().GetBool("by-parameter")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 		refresh, _ := cmd.Flags().GetBool("refresh")
+		watchInterval, _ := cmd.Flags().GetDuration("watch")
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -38,6 +43,10 @@ Without filters, queries the current cluster context.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+
+		if watchInterval > 0 && !printutils.IsTTY() {
+			log.Fatal("--watch requires an interactive terminal")
+		}
 
 		// Check if any filter is specified
 		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
@@ -75,37 +84,65 @@ Without filters, queries the current cluster context.`,
 			return
 		}
 
-		allStacks := []cf.StackInfo{}
-		for _, clusterInfo := range clusterList {
-			clusterSearchName := searchName
-			if clusterSearchName == "" {
-				clusterSearchName = clusterInfo.ClusterName
-			}
+		collectStacks := func() []cf.StackInfo {
+			var allStacks []cf.StackInfo
+			for _, clusterInfo := range clusterList {
+				clusterSearchName := searchName
+				if clusterSearchName == "" {
+					clusterSearchName = clusterInfo.ClusterName
+				}
 
-			var stackList []cf.StackInfo
-			var err error
-			if paramFilter {
-				stackList, err = cf.GetStacksByParameter("ClusterName", clusterSearchName, clusterInfo.AWSProfile, clusterInfo.Region)
-			} else {
-				stackList, err = cf.GetStacks(clusterSearchName, clusterInfo.AWSProfile, clusterInfo.Region)
-			}
+				var stackList []cf.StackInfo
+				var err error
+				if paramFilter {
+					stackList, err = cf.GetStacksByParameter("ClusterName", clusterSearchName, clusterInfo.AWSProfile, clusterInfo.Region)
+				} else {
+					stackList, err = cf.GetStacks(clusterSearchName, clusterInfo.AWSProfile, clusterInfo.Region)
+				}
 
-			if err != nil {
-				fmt.Fprintf(log.Writer(), "Error getting CF stacks for cluster %s: %v\n", clusterInfo.ClusterName, err)
-				continue
+				if err != nil {
+					fmt.Fprintf(log.Writer(), "Error getting CF stacks for cluster %s: %v\n", clusterInfo.ClusterName, err)
+					continue
+				}
+				for i := range stackList {
+					stackList[i].Profile = clusterInfo.AWSProfile
+					stackList[i].Region = clusterInfo.Region
+					stackList[i].ClusterName = clusterInfo.ClusterName
+				}
+				allStacks = append(allStacks, stackList...)
 			}
-			for i := range stackList {
-				stackList[i].Profile = clusterInfo.AWSProfile
-				stackList[i].Region = clusterInfo.Region
-				stackList[i].ClusterName = clusterInfo.ClusterName
-			}
-			allStacks = append(allStacks, stackList...)
+			return allStacks
 		}
 
-		printutils.PrintStacks(noHeaders, allStacks...)
+		if watchInterval > 0 {
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-		if hasFilters {
-			saveCacheToDisk()
+			fetchAndPrint := func() {
+				printutils.ClearScreen()
+				fmt.Printf("Every %s: kubectl eks stacks (last: %s)\n\n", watchInterval, time.Now().Format("15:04:05"))
+				printutils.PrintStacksColored(collectStacks())
+			}
+
+			fetchAndPrint()
+			ticker := time.NewTicker(watchInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-sigCh:
+					fmt.Println()
+					return
+				case <-ticker.C:
+					fetchAndPrint()
+				}
+			}
+		} else {
+			printutils.PrintStacks(noHeaders, collectStacks()...)
+
+			if hasFilters {
+				saveCacheToDisk()
+			}
 		}
 	},
 }
@@ -121,6 +158,8 @@ func init() {
 	stacksCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	stacksCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	stacksCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	stacksCmd.Flags().DurationP("watch", "w", 0, "Watch mode: refresh every interval (default 30s, e.g. -w 5s)")
+	stacksCmd.Flags().Lookup("watch").NoOptDefVal = "30s"
 
 	rootCmd.AddCommand(stacksCmd)
 }
