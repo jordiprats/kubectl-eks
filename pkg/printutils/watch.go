@@ -1,6 +1,7 @@
 package printutils
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"sort"
@@ -45,37 +46,13 @@ func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
 		})
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 3, ' ', 0)
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 4, 3, ' ', 0)
 
 	if multiCluster {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			Colorize("AWS PROFILE", ColorBold),
-			Colorize("AWS REGION", ColorBold),
-			Colorize("CLUSTER NAME", ColorBold),
-			Colorize("NAME", ColorBold),
-			Colorize("CAPACITY TYPE", ColorBold),
-			Colorize("RELEASE VERSION", ColorBold),
-			Colorize("LAUNCH TEMPLATE", ColorBold),
-			Colorize("INSTANCE TYPE", ColorBold),
-			Colorize("DESIRED CAPACITY", ColorBold),
-			Colorize("MAX CAPACITY", ColorBold),
-			Colorize("MIN CAPACITY", ColorBold),
-			Colorize("VERSION", ColorBold),
-			Colorize("STATUS", ColorBold),
-		)
+		fmt.Fprintf(w, "AWS PROFILE\tAWS REGION\tCLUSTER NAME\tNAME\tCAPACITY TYPE\tRELEASE VERSION\tLAUNCH TEMPLATE\tINSTANCE TYPE\tDESIRED CAPACITY\tMAX CAPACITY\tMIN CAPACITY\tVERSION\tSTATUS\n")
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			Colorize("NAME", ColorBold),
-			Colorize("CAPACITY TYPE", ColorBold),
-			Colorize("RELEASE VERSION", ColorBold),
-			Colorize("LAUNCH TEMPLATE", ColorBold),
-			Colorize("INSTANCE TYPE", ColorBold),
-			Colorize("DESIRED CAPACITY", ColorBold),
-			Colorize("MAX CAPACITY", ColorBold),
-			Colorize("MIN CAPACITY", ColorBold),
-			Colorize("VERSION", ColorBold),
-			Colorize("STATUS", ColorBold),
-		)
+		fmt.Fprintf(w, "NAME\tCAPACITY TYPE\tRELEASE VERSION\tLAUNCH TEMPLATE\tINSTANCE TYPE\tDESIRED CAPACITY\tMAX CAPACITY\tMIN CAPACITY\tVERSION\tSTATUS\n")
 	}
 
 	for _, ng := range ngInfo {
@@ -117,4 +94,13 @@ func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
 	}
 
 	w.Flush()
+
+	output := buf.String()
+	if IsTTY() {
+		if i := strings.Index(output, "\n"); i >= 0 {
+			fmt.Fprint(os.Stdout, ColorBold+output[:i]+ColorReset+output[i:])
+			return
+		}
+	}
+	fmt.Fprint(os.Stdout, output)
 }
