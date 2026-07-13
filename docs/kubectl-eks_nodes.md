@@ -50,6 +50,7 @@ kubectl-eks nodes [flags]
   -u, --refresh                       Do not use cached data, refresh from AWS
   -r, --region string                 Filter by AWS region
   -v, --version string                Filter by EKS version
+  -w, --watch duration[=30s]          Watch mode: refresh every interval (default 30s, e.g. -w 5s)
 ```
 
 ### Options inherited from parent commands
