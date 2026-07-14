@@ -101,24 +101,29 @@ Without filters, queries the current cluster context.`,
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			fetchAndPrint := func() {
-				allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains)
-				printutils.ClearScreen()
-				fmt.Printf("Every %s: kubectl eks nodes (last: %s)\n\n", watchInterval, time.Now().Format("15:04:05"))
-				printutils.PrintMultiClusterNodesColored(output == "wide", allNodes)
-			}
-
-			fetchAndPrint()
-			ticker := time.NewTicker(watchInterval)
-			defer ticker.Stop()
-
+			effectiveInterval := watchInterval
 			for {
+				start := time.Now()
+				allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains)
+				elapsed := time.Since(start)
+
+				printutils.ClearScreen()
+				fmt.Printf("Every %s: kubectl eks nodes (last: %s)\n\n", effectiveInterval, time.Now().Format("15:04:05"))
+				printutils.PrintMultiClusterNodesColored(output == "wide", allNodes)
+
+				nextInterval := watchInterval
+				if twice := 2 * elapsed; twice > nextInterval {
+					nextInterval = twice
+				}
+				effectiveInterval = nextInterval
+
+				timer := time.NewTimer(nextInterval)
 				select {
 				case <-sigCh:
+					timer.Stop()
 					fmt.Println()
 					return
-				case <-ticker.C:
-					fetchAndPrint()
+				case <-timer.C:
 				}
 			}
 		} else {

@@ -119,7 +119,9 @@ Without filters, queries the current cluster context.`,
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			fetchAndPrint := func() {
+			effectiveInterval := watchInterval
+			for {
+				start := time.Now()
 				allNodeGroups := []eks.EKSNodeGroupInfo{}
 				for _, clusterInfo := range clusterList {
 					clusterNGList, err := eks.GetEKSNodeGroups(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
@@ -128,6 +130,7 @@ Without filters, queries the current cluster context.`,
 					}
 					allNodeGroups = append(allNodeGroups, clusterNGList...)
 				}
+				elapsed := time.Since(start)
 
 				multiCluster := false
 				if len(allNodeGroups) > 0 {
@@ -141,21 +144,22 @@ Without filters, queries the current cluster context.`,
 				}
 
 				printutils.ClearScreen()
-				fmt.Printf("Every %s: kubectl eks nodegroups (last: %s)\n\n", watchInterval, time.Now().Format("15:04:05"))
+				fmt.Printf("Every %s: kubectl eks nodegroups (last: %s)\n\n", effectiveInterval, time.Now().Format("15:04:05"))
 				printutils.PrintNodeGroupColored(multiCluster, allNodeGroups...)
-			}
 
-			fetchAndPrint()
-			ticker := time.NewTicker(watchInterval)
-			defer ticker.Stop()
+				nextInterval := watchInterval
+				if twice := 2 * elapsed; twice > nextInterval {
+					nextInterval = twice
+				}
+				effectiveInterval = nextInterval
 
-			for {
+				timer := time.NewTimer(nextInterval)
 				select {
 				case <-sigCh:
+					timer.Stop()
 					fmt.Println()
 					return
-				case <-ticker.C:
-					fetchAndPrint()
+				case <-timer.C:
 				}
 			}
 		} else {
