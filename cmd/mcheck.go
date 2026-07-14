@@ -65,11 +65,12 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 		checkSts, _ := cmd.Flags().GetBool("statefulsets")
 		checkDs, _ := cmd.Flags().GetBool("daemonsets")
 		checkRs, _ := cmd.Flags().GetBool("replicasets")
+		checkNodes, _ := cmd.Flags().GetBool("nodes")
 
 		// If no specific types requested, check all
-		checkAllTypes := !checkPods && !checkDeploys && !checkSts && !checkDs && !checkRs
+		checkAllTypes := !checkPods && !checkDeploys && !checkSts && !checkDs && !checkRs && !checkNodes
 		if checkAllTypes {
-			checkPods, checkDeploys, checkSts, checkDs, checkRs = true, true, true, true, true
+			checkPods, checkDeploys, checkSts, checkDs, checkRs, checkNodes = true, true, true, true, true, true
 		}
 
 		clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
@@ -109,6 +110,11 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 			}
 
 			clusterResults := []data.HealthCheckResult{}
+
+			if checkNodes {
+				results := checkNodesHealth(clientset, clusterInfo)
+				clusterResults = append(clusterResults, results...)
+			}
 
 			for _, ns := range namespaces {
 				if checkPods {
@@ -385,6 +391,56 @@ func checkDaemonSetsHealth(clientset *kubernetes.Clientset, cluster data.Cluster
 	return results
 }
 
+func checkNodesHealth(clientset *kubernetes.Clientset, cluster data.ClusterInfo) []data.HealthCheckResult {
+	results := []data.HealthCheckResult{}
+
+	nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return results
+	}
+
+	for _, node := range nodes.Items {
+		result := data.HealthCheckResult{
+			Profile:     cluster.AWSProfile,
+			Region:      cluster.Region,
+			ClusterName: cluster.ClusterName,
+			Kind:        "Node",
+			Name:        node.Name,
+		}
+
+		readyStatus := corev1.ConditionUnknown
+		message := "Unknown"
+		for _, cond := range node.Status.Conditions {
+			if cond.Type == corev1.NodeReady {
+				readyStatus = cond.Status
+				message = cond.Message
+				break
+			}
+		}
+
+		result.Ready = string(readyStatus)
+		result.Status = "Ready=" + string(readyStatus)
+		if node.Spec.Unschedulable {
+			result.Status += ",SchedulingDisabled"
+		}
+
+		if readyStatus == corev1.ConditionTrue && !node.Spec.Unschedulable {
+			result.IsHealthy = true
+			result.Message = "Node ready"
+		} else if node.Spec.Unschedulable {
+			result.IsHealthy = false
+			result.Message = "Node cordoned"
+		} else {
+			result.IsHealthy = false
+			result.Message = message
+		}
+
+		results = append(results, result)
+	}
+
+	return results
+}
+
 func checkReplicaSetsHealth(clientset *kubernetes.Clientset, cluster data.ClusterInfo, namespace string) []data.HealthCheckResult {
 	results := []data.HealthCheckResult{}
 
@@ -465,6 +521,11 @@ func summarizeResults(cluster data.ClusterInfo, results []data.HealthCheckResult
 			if r.IsHealthy {
 				summary.HealthyReplicaSets++
 			}
+		case "Node":
+			summary.TotalNodes++
+			if r.IsHealthy {
+				summary.HealthyNodes++
+			}
 		}
 	}
 
@@ -472,7 +533,8 @@ func summarizeResults(cluster data.ClusterInfo, results []data.HealthCheckResult
 		(summary.TotalDeployments - summary.HealthyDeployments) +
 		(summary.TotalStatefulSets - summary.HealthyStatefulSets) +
 		(summary.TotalDaemonSets - summary.HealthyDaemonSets) +
-		(summary.TotalReplicaSets - summary.HealthyReplicaSets)
+		(summary.TotalReplicaSets - summary.HealthyReplicaSets) +
+		(summary.TotalNodes - summary.HealthyNodes)
 
 	if unhealthy == 0 {
 		summary.OverallStatus = "Healthy"
@@ -503,6 +565,7 @@ func init() {
 	mCheckCmd.Flags().Bool("statefulsets", false, "Check only statefulsets")
 	mCheckCmd.Flags().Bool("daemonsets", false, "Check only daemonsets")
 	mCheckCmd.Flags().Bool("replicasets", false, "Check only replicasets")
+	mCheckCmd.Flags().Bool("nodes", false, "Check only nodes")
 
 	rootCmd.AddCommand(mCheckCmd)
 }

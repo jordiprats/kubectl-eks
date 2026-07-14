@@ -29,5 +29,7 @@ type ClusterHealthSummary struct {
 	HealthyDaemonSets   int
 	TotalReplicaSets    int
 	HealthyReplicaSets  int
+	TotalNodes          int
+	HealthyNodes        int
 	OverallStatus       string
 }
