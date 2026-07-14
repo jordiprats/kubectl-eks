@@ -131,9 +131,9 @@ Without filters, queries the current cluster context.`,
 
 				multiCluster := false
 				if len(allNodeGroups) > 0 {
-					first := allNodeGroups[0].ClusterName
+					firstKey := allNodeGroups[0].Profile + "|" + allNodeGroups[0].Region + "|" + allNodeGroups[0].ClusterName
 					for _, ng := range allNodeGroups[1:] {
-						if ng.ClusterName != first {
+						if ng.Profile+"|"+ng.Region+"|"+ng.ClusterName != firstKey {
 							multiCluster = true
 							break
 						}

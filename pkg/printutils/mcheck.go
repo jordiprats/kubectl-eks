@@ -78,6 +78,7 @@ func PrintHealthSummary(noHeaders bool, summaries []data.ClusterHealthSummary) {
 			{Name: "STATEFULSETS", Type: "string"},
 			{Name: "DAEMONSETS", Type: "string"},
 			{Name: "REPLICASETS", Type: "string"},
+			{Name: "NODES", Type: "string"},
 			{Name: "STATUS", Type: "string"},
 		},
 	}
@@ -93,6 +94,7 @@ func PrintHealthSummary(noHeaders bool, summaries []data.ClusterHealthSummary) {
 				fmt.Sprintf("%d/%d", s.HealthyStatefulSets, s.TotalStatefulSets),
 				fmt.Sprintf("%d/%d", s.HealthyDaemonSets, s.TotalDaemonSets),
 				fmt.Sprintf("%d/%d", s.HealthyReplicaSets, s.TotalReplicaSets),
+				fmt.Sprintf("%d/%d", s.HealthyNodes, s.TotalNodes),
 				s.OverallStatus,
 			},
 		})
