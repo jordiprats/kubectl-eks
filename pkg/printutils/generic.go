@@ -630,9 +630,9 @@ func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
 	// Determine if multiple clusters are present
 	multiCluster := false
 	if len(ngInfo) > 0 {
-		first := ngInfo[0].ClusterName
+		firstKey := ngInfo[0].Profile + "|" + ngInfo[0].Region + "|" + ngInfo[0].ClusterName
 		for _, ng := range ngInfo[1:] {
-			if ng.ClusterName != first {
+			if ng.Profile+"|"+ng.Region+"|"+ng.ClusterName != firstKey {
 				multiCluster = true
 				break
 			}
