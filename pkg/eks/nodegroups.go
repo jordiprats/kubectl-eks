@@ -2,7 +2,10 @@ package eks
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -11,19 +14,21 @@ import (
 )
 
 type EKSNodeGroupInfo struct {
-	Profile         string
-	Region          string
-	ClusterName     string
-	Name            string
-	CapacityType    string
-	ReleaseVersion  string
-	LaunchTemplate  string
-	InstanceType    string
-	DesiredCapacity int64
-	MaxCapacity     int64
-	MinCapacity     int64
-	Version         string
-	Status          string
+	Profile            string
+	Region             string
+	ClusterName        string
+	Name               string
+	CapacityType       string
+	ReleaseVersion     string
+	LaunchTemplate     string
+	InstanceType       string
+	DesiredCapacity    int64
+	MaxCapacity        int64
+	MinCapacity        int64
+	Version            string
+	Status             string
+	BootstrapArguments string
+	BootstrapMatch     string
 }
 
 func GetEKSNodeGroups(profile, region, clusterName string) ([]EKSNodeGroupInfo, error) {
@@ -69,6 +74,7 @@ func GetEKSNodeGroups(profile, region, clusterName string) ([]EKSNodeGroupInfo, 
 
 		instanceType := ""
 
+		bootstrapArguments := ""
 		if ngDesc.Nodegroup.LaunchTemplate != nil {
 			ltDesc, err := ec2Svc.DescribeLaunchTemplateVersions(ctx, &ec2.DescribeLaunchTemplateVersionsInput{
 				LaunchTemplateId: ngDesc.Nodegroup.LaunchTemplate.Id,
@@ -77,6 +83,13 @@ func GetEKSNodeGroups(profile, region, clusterName string) ([]EKSNodeGroupInfo, 
 
 			if err == nil && len(ltDesc.LaunchTemplateVersions) > 0 && ltDesc.LaunchTemplateVersions[0].LaunchTemplateData != nil {
 				instanceType = string(ltDesc.LaunchTemplateVersions[0].LaunchTemplateData.InstanceType)
+				if ltDesc.LaunchTemplateVersions[0].LaunchTemplateData.UserData != nil {
+					userData := aws.ToString(ltDesc.LaunchTemplateVersions[0].LaunchTemplateData.UserData)
+					decoded, err := base64.StdEncoding.DecodeString(userData)
+					if err == nil {
+						bootstrapArguments = extractKubeletFlags(string(decoded))
+					}
+				}
 			}
 		}
 
@@ -86,21 +99,47 @@ func GetEKSNodeGroups(profile, region, clusterName string) ([]EKSNodeGroupInfo, 
 		}
 
 		ngList[i] = EKSNodeGroupInfo{
-			Profile:         profile,
-			Region:          region,
-			ClusterName:     clusterName,
-			Name:            ng,
-			CapacityType:    string(ngDesc.Nodegroup.CapacityType),
-			ReleaseVersion:  aws.ToString(ngDesc.Nodegroup.ReleaseVersion),
-			InstanceType:    instanceType,
-			LaunchTemplate:  launchTemplateID,
-			DesiredCapacity: int64(aws.ToInt32(ngDesc.Nodegroup.ScalingConfig.DesiredSize)),
-			MaxCapacity:     int64(aws.ToInt32(ngDesc.Nodegroup.ScalingConfig.MaxSize)),
-			MinCapacity:     int64(aws.ToInt32(ngDesc.Nodegroup.ScalingConfig.MinSize)),
-			Version:         aws.ToString(ngDesc.Nodegroup.Version),
-			Status:          string(ngDesc.Nodegroup.Status),
+			Profile:            profile,
+			Region:             region,
+			ClusterName:        clusterName,
+			Name:               ng,
+			CapacityType:       string(ngDesc.Nodegroup.CapacityType),
+			ReleaseVersion:     aws.ToString(ngDesc.Nodegroup.ReleaseVersion),
+			InstanceType:       instanceType,
+			LaunchTemplate:     launchTemplateID,
+			DesiredCapacity:    int64(aws.ToInt32(ngDesc.Nodegroup.ScalingConfig.DesiredSize)),
+			MaxCapacity:        int64(aws.ToInt32(ngDesc.Nodegroup.ScalingConfig.MaxSize)),
+			MinCapacity:        int64(aws.ToInt32(ngDesc.Nodegroup.ScalingConfig.MinSize)),
+			Version:            aws.ToString(ngDesc.Nodegroup.Version),
+			Status:             string(ngDesc.Nodegroup.Status),
+			BootstrapArguments: bootstrapArguments,
 		}
 	}
 
 	return ngList, nil
+}
+
+func MatchBootstrapRegex(ngList []EKSNodeGroupInfo, pattern string) ([]EKSNodeGroupInfo, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid regex pattern: %w", err)
+	}
+
+	for i := range ngList {
+		ngList[i].BootstrapMatch = re.FindString(ngList[i].BootstrapArguments)
+	}
+	return ngList, nil
+}
+
+var kubeletFlagsRegex = regexp.MustCompile(`(?m)^\s*-\s+(--\S.*)$`)
+
+func extractKubeletFlags(userData string) string {
+	var flags []string
+	for _, line := range strings.Split(userData, "\n") {
+		m := kubeletFlagsRegex.FindStringSubmatch(line)
+		if m != nil {
+			flags = append(flags, strings.TrimSpace(m[1]))
+		}
+	}
+	return strings.Join(flags, " ")
 }

@@ -56,6 +56,8 @@ Without filters, queries the current cluster context.`,
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		ami, _ := cmd.Flags().GetString("ami")
 		watchInterval, _ := cmd.Flags().GetDuration("watch")
+		bootstrapRegex, _ := cmd.Flags().GetString("bootstrap-regex")
+		output, _ := cmd.Flags().GetString("output")
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -130,6 +132,13 @@ Without filters, queries the current cluster context.`,
 					}
 					allNodeGroups = append(allNodeGroups, clusterNGList...)
 				}
+				if bootstrapRegex != "" {
+					filtered, err := eks.MatchBootstrapRegex(allNodeGroups, bootstrapRegex)
+					if err != nil {
+						log.Fatalf("Error filtering by bootstrap regex: %v", err)
+					}
+					allNodeGroups = filtered
+				}
 				elapsed := time.Since(start)
 
 				multiCluster := false
@@ -145,7 +154,7 @@ Without filters, queries the current cluster context.`,
 
 				printutils.ClearScreen()
 				fmt.Printf("Every %s: kubectl eks nodegroups (last: %s)\n\n", effectiveInterval, time.Now().Format("15:04:05"))
-				printutils.PrintNodeGroupColored(multiCluster, allNodeGroups...)
+				printutils.PrintNodeGroupColored(multiCluster, output == "wide", allNodeGroups...)
 
 				nextInterval := watchInterval
 				if twice := 2 * elapsed; twice > nextInterval {
@@ -172,7 +181,14 @@ Without filters, queries the current cluster context.`,
 				}
 				allNodeGroups = append(allNodeGroups, clusterNGList...)
 			}
-			printutils.PrintNodeGroup(noHeaders, allNodeGroups...)
+			if bootstrapRegex != "" {
+				filtered, err := eks.MatchBootstrapRegex(allNodeGroups, bootstrapRegex)
+				if err != nil {
+					log.Fatalf("Error filtering by bootstrap regex: %v", err)
+				}
+				allNodeGroups = filtered
+			}
+			printutils.PrintNodeGroup(noHeaders, output == "wide", allNodeGroups...)
 		}
 
 		if hasFilters {
@@ -193,6 +209,8 @@ func init() {
 	nodegroupsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	nodegroupsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	nodegroupsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	nodegroupsCmd.Flags().StringP("bootstrap-regex", "b", "", "Filter by regex match in bootstrap arguments (shows matched string)")
+	nodegroupsCmd.Flags().StringP("output", "o", "", "Output format: wide")
 
 	rootCmd.AddCommand(nodegroupsCmd)
 }
