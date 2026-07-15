@@ -143,3 +143,55 @@ func extractKubeletFlags(userData string) string {
 	}
 	return strings.Join(flags, " ")
 }
+
+func FilterByName(ngList []EKSNodeGroupInfo, exactNames []string, excludeNames []string, contains []string, notContains []string) []EKSNodeGroupInfo {
+	if len(exactNames) == 0 && len(excludeNames) == 0 && len(contains) == 0 && len(notContains) == 0 {
+		return ngList
+	}
+	var filtered []EKSNodeGroupInfo
+	for _, ng := range ngList {
+		if len(exactNames) > 0 {
+			found := false
+			for _, name := range exactNames {
+				if ng.Name == name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		if len(excludeNames) > 0 {
+			excluded := false
+			for _, name := range excludeNames {
+				if ng.Name == name {
+					excluded = true
+					break
+				}
+			}
+			if excluded {
+				continue
+			}
+		}
+		match := true
+		for _, c := range contains {
+			if !strings.Contains(ng.Name, c) {
+				match = false
+				break
+			}
+		}
+		if match {
+			for _, nc := range notContains {
+				if strings.Contains(ng.Name, nc) {
+					match = false
+					break
+				}
+			}
+		}
+		if match {
+			filtered = append(filtered, ng)
+		}
+	}
+	return filtered
+}

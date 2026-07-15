@@ -58,6 +58,10 @@ Without filters, queries the current cluster context.`,
 		watchInterval, _ := cmd.Flags().GetDuration("watch")
 		bootstrapRegex, _ := cmd.Flags().GetString("bootstrap-regex")
 		output, _ := cmd.Flags().GetString("output")
+		ngNames, _ := cmd.Flags().GetStringSlice("ng")
+		ngNotNames, _ := cmd.Flags().GetStringSlice("ng-not")
+		ngContains, _ := cmd.Flags().GetStringSlice("ng-contains")
+		ngNotContains, _ := cmd.Flags().GetStringSlice("ng-not-contains")
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -132,6 +136,7 @@ Without filters, queries the current cluster context.`,
 					}
 					allNodeGroups = append(allNodeGroups, clusterNGList...)
 				}
+				allNodeGroups = eks.FilterByName(allNodeGroups, ngNames, ngNotNames, ngContains, ngNotContains)
 				if bootstrapRegex != "" {
 					filtered, err := eks.MatchBootstrapRegex(allNodeGroups, bootstrapRegex)
 					if err != nil {
@@ -181,6 +186,7 @@ Without filters, queries the current cluster context.`,
 				}
 				allNodeGroups = append(allNodeGroups, clusterNGList...)
 			}
+			allNodeGroups = eks.FilterByName(allNodeGroups, ngNames, ngNotNames, ngContains, ngNotContains)
 			if bootstrapRegex != "" {
 				filtered, err := eks.MatchBootstrapRegex(allNodeGroups, bootstrapRegex)
 				if err != nil {
@@ -209,7 +215,11 @@ func init() {
 	nodegroupsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	nodegroupsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	nodegroupsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
-	nodegroupsCmd.Flags().StringP("bootstrap-regex", "b", "", "Filter by regex match in bootstrap arguments (shows matched string)")
+	nodegroupsCmd.Flags().StringP("bootstrap-regex", "b", "", "Search bootstrap arguments with regex (shows matched string)")
+	nodegroupsCmd.Flags().StringSlice("ng", nil, "Filter by exact nodegroup name (repeatable)")
+	nodegroupsCmd.Flags().StringSlice("ng-not", nil, "Exclude by exact nodegroup name (repeatable)")
+	nodegroupsCmd.Flags().StringSliceP("ng-contains", "m", nil, "Filter by nodegroup name substring (repeatable)")
+	nodegroupsCmd.Flags().StringSliceP("ng-not-contains", "M", nil, "Exclude nodegroups whose name contains substring (repeatable)")
 	nodegroupsCmd.Flags().StringP("output", "o", "", "Output format: wide")
 
 	rootCmd.AddCommand(nodegroupsCmd)
