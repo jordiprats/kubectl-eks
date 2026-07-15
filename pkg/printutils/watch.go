@@ -28,7 +28,7 @@ func colorForStatus(status string) string {
 	}
 }
 
-func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
+func PrintNodeGroupColored(multiCluster bool, wide bool, ngInfo ...eks.EKSNodeGroupInfo) {
 	if multiCluster {
 		sort.Slice(ngInfo, func(i, j int) bool {
 			if ngInfo[i].Profile != ngInfo[j].Profile {
@@ -48,17 +48,37 @@ func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
 		})
 	}
 
+	hasBootstrapMatch := false
+	for _, ng := range ngInfo {
+		if ng.BootstrapMatch != "" {
+			hasBootstrapMatch = true
+			break
+		}
+	}
+
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 4, 3, ' ', 0)
 
 	if multiCluster {
-		fmt.Fprintf(w, "AWS PROFILE\tAWS REGION\tCLUSTER NAME\tNAME\tCAPACITY TYPE\tRELEASE VERSION\tLAUNCH TEMPLATE\tINSTANCE TYPE\tDESIRED CAPACITY\tMAX CAPACITY\tMIN CAPACITY\tVERSION\tSTATUS\n")
+		header := "AWS PROFILE\tAWS REGION\tCLUSTER NAME\tNAME\tCAPACITY TYPE\tRELEASE VERSION\tLAUNCH TEMPLATE\tINSTANCE TYPE\tDESIRED CAPACITY\tMAX CAPACITY\tMIN CAPACITY\tVERSION\tSTATUS"
+		if hasBootstrapMatch {
+			header += "\tBOOTSTRAP MATCH"
+		}
+		if wide {
+			header += "\tBOOTSTRAP ARGUMENTS"
+		}
+		fmt.Fprintf(w, "%s\n", header)
 	} else {
-		fmt.Fprintf(w, "NAME\tCAPACITY TYPE\tRELEASE VERSION\tLAUNCH TEMPLATE\tINSTANCE TYPE\tDESIRED CAPACITY\tMAX CAPACITY\tMIN CAPACITY\tVERSION\tSTATUS\n")
+		header := "NAME\tCAPACITY TYPE\tRELEASE VERSION\tLAUNCH TEMPLATE\tINSTANCE TYPE\tDESIRED CAPACITY\tMAX CAPACITY\tMIN CAPACITY\tVERSION\tSTATUS"
+		if hasBootstrapMatch {
+			header += "\tBOOTSTRAP MATCH"
+		}
+		if wide {
+			header += "\tBOOTSTRAP ARGUMENTS"
+		}
+		fmt.Fprintf(w, "%s\n", header)
 	}
 
-	// STATUS is the last column in nodegroups — ANSI codes there don't affect other columns,
-	// so we can colorize directly.
 	for _, ng := range ngInfo {
 		status := ng.Status
 		if c := colorForStatus(status); c != "" {
@@ -66,7 +86,7 @@ func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
 		}
 
 		if multiCluster {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s",
 				ng.Profile,
 				ng.Region,
 				ng.ClusterName,
@@ -82,7 +102,7 @@ func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
 				status,
 			)
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s",
 				ng.Name,
 				ng.CapacityType,
 				ng.ReleaseVersion,
@@ -95,6 +115,13 @@ func PrintNodeGroupColored(multiCluster bool, ngInfo ...eks.EKSNodeGroupInfo) {
 				status,
 			)
 		}
+		if hasBootstrapMatch {
+			fmt.Fprintf(w, "\t%s", ng.BootstrapMatch)
+		}
+		if wide {
+			fmt.Fprintf(w, "\t%s", sanitizeForColumn(ng.BootstrapArguments))
+		}
+		fmt.Fprintf(w, "\n")
 	}
 
 	w.Flush()

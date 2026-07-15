@@ -626,7 +626,14 @@ func PrintAMIs(noHeaders bool, amiInfos ...data.AMIInfo) {
 	}
 }
 
-func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
+func sanitizeForColumn(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\t", " ")
+	return s
+}
+
+func PrintNodeGroup(noHeaders bool, wide bool, ngInfo ...eks.EKSNodeGroupInfo) {
 	// Determine if multiple clusters are present
 	multiCluster := false
 	if len(ngInfo) > 0 {
@@ -665,6 +672,14 @@ func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
 			v1.TableColumnDefinition{Name: "CLUSTER NAME", Type: "string"},
 		)
 	}
+	hasBootstrapMatch := false
+	for _, ng := range ngInfo {
+		if ng.BootstrapMatch != "" {
+			hasBootstrapMatch = true
+			break
+		}
+	}
+
 	columns = append(columns,
 		v1.TableColumnDefinition{Name: "NAME", Type: "string"},
 		v1.TableColumnDefinition{Name: "CAPACITY TYPE", Type: "string"},
@@ -677,6 +692,12 @@ func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
 		v1.TableColumnDefinition{Name: "VERSION", Type: "string"},
 		v1.TableColumnDefinition{Name: "STATUS", Type: "string"},
 	)
+	if hasBootstrapMatch {
+		columns = append(columns, v1.TableColumnDefinition{Name: "BOOTSTRAP MATCH", Type: "string"})
+	}
+	if wide {
+		columns = append(columns, v1.TableColumnDefinition{Name: "BOOTSTRAP ARGUMENTS", Type: "string"})
+	}
 
 	table := &v1.Table{ColumnDefinitions: columns}
 
@@ -698,6 +719,12 @@ func PrintNodeGroup(noHeaders bool, ngInfo ...eks.EKSNodeGroupInfo) {
 			eachNG.Version,
 			eachNG.Status,
 		)
+		if hasBootstrapMatch {
+			cells = append(cells, eachNG.BootstrapMatch)
+		}
+		if wide {
+			cells = append(cells, sanitizeForColumn(eachNG.BootstrapArguments))
+		}
 		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 

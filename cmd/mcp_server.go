@@ -587,7 +587,7 @@ func handleGetNodegroups(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		}
 
 		output = captureOutput(func() {
-			printutils.PrintNodeGroup(false, ngList...)
+			printutils.PrintNodeGroup(false, false, ngList...)
 		})
 	})
 
