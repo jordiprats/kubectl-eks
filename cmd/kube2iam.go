@@ -157,7 +157,7 @@ Without filters, queries the current cluster context.`,
 			return
 		}
 
-		printutils.PrintKube2IAM(noHeaders, kube2iamInfos...)
+		printutils.PrintKube2IAM(noHeaders, hasFilters, kube2iamInfos...)
 
 		if hasFilters {
 			saveCacheToDisk()

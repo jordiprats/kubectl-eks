@@ -60,18 +60,14 @@ func PrintIRSA(noHeaders bool, irsaInfos ...data.IRSAInfo) {
 	}
 }
 
-func PrintKube2IAM(noHeaders bool, kube2iamInfos ...data.Kube2IAMInfo) {
-	multiCluster := false
+func PrintKube2IAM(noHeaders bool, multiCluster bool, kube2iamInfos ...data.Kube2IAMInfo) {
 	multiNamespace := false
 	if len(kube2iamInfos) > 0 {
-		firstCluster := kube2iamInfos[0].ClusterName
 		firstNamespace := kube2iamInfos[0].Namespace
 		for _, info := range kube2iamInfos[1:] {
-			if info.ClusterName != firstCluster {
-				multiCluster = true
-			}
 			if info.Namespace != firstNamespace {
 				multiNamespace = true
+				break
 			}
 		}
 	}
