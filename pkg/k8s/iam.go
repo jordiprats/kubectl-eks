@@ -117,7 +117,7 @@ func GetPodsWithKube2IAM(ctx context.Context, namespace string) ([]corev1.Pod, e
 			return nil, err
 		}
 		for _, pod := range podList.Items {
-			if _, ok := pod.Annotations["iam.amazonaws.com/role"]; ok {
+			if role, ok := pod.Annotations["iam.amazonaws.com/role"]; ok && role != "" {
 				pods = append(pods, pod)
 			}
 		}
@@ -128,7 +128,42 @@ func GetPodsWithKube2IAM(ctx context.Context, namespace string) ([]corev1.Pod, e
 			return nil, err
 		}
 		for _, pod := range podList.Items {
-			if _, ok := pod.Annotations["iam.amazonaws.com/role"]; ok {
+			if role, ok := pod.Annotations["iam.amazonaws.com/role"]; ok && role != "" {
+				pods = append(pods, pod)
+			}
+		}
+	}
+
+	return pods, nil
+}
+
+func GetPodsWithKube2IAMWithConfig(ctx context.Context, restConfig *rest.Config, namespace string) ([]corev1.Pod, error) {
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	var pods []corev1.Pod
+
+	if namespace == "" {
+		// Get pods from all namespaces
+		podList, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, pod := range podList.Items {
+			if role, ok := pod.Annotations["iam.amazonaws.com/role"]; ok && role != "" {
+				pods = append(pods, pod)
+			}
+		}
+	} else {
+		// Get pods from specific namespace
+		podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, pod := range podList.Items {
+			if role, ok := pod.Annotations["iam.amazonaws.com/role"]; ok && role != "" {
 				pods = append(pods, pod)
 			}
 		}
