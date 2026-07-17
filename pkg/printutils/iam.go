@@ -61,6 +61,17 @@ func PrintIRSA(noHeaders bool, irsaInfos ...data.IRSAInfo) {
 }
 
 func PrintKube2IAM(noHeaders bool, kube2iamInfos ...data.Kube2IAMInfo) {
+	multiCluster := false
+	if len(kube2iamInfos) > 0 {
+		first := kube2iamInfos[0].ClusterName
+		for _, info := range kube2iamInfos[1:] {
+			if info.ClusterName != first {
+				multiCluster = true
+				break
+			}
+		}
+	}
+
 	sort.Slice(kube2iamInfos, func(i, j int) bool {
 		if kube2iamInfos[i].Profile != kube2iamInfos[j].Profile {
 			return kube2iamInfos[i].Profile < kube2iamInfos[j].Profile
@@ -79,30 +90,30 @@ func PrintKube2IAM(noHeaders bool, kube2iamInfos ...data.Kube2IAMInfo) {
 
 	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
 
-	table := &v1.Table{
-		ColumnDefinitions: []v1.TableColumnDefinition{
-			{Name: "AWS PROFILE", Type: "string"},
-			{Name: "AWS REGION", Type: "string"},
-			{Name: "CLUSTER", Type: "string"},
-			{Name: "NAMESPACE", Type: "string"},
-			{Name: "POD", Type: "string"},
-			{Name: "IAM ROLE", Type: "string"},
-			{Name: "NODE", Type: "string"},
-		},
+	columns := []v1.TableColumnDefinition{}
+	if multiCluster {
+		columns = append(columns,
+			v1.TableColumnDefinition{Name: "AWS PROFILE", Type: "string"},
+			v1.TableColumnDefinition{Name: "AWS REGION", Type: "string"},
+			v1.TableColumnDefinition{Name: "CLUSTER", Type: "string"},
+		)
 	}
+	columns = append(columns,
+		v1.TableColumnDefinition{Name: "NAMESPACE", Type: "string"},
+		v1.TableColumnDefinition{Name: "POD", Type: "string"},
+		v1.TableColumnDefinition{Name: "IAM ROLE", Type: "string"},
+		v1.TableColumnDefinition{Name: "NODE", Type: "string"},
+	)
+
+	table := &v1.Table{ColumnDefinitions: columns}
 
 	for _, info := range kube2iamInfos {
-		table.Rows = append(table.Rows, v1.TableRow{
-			Cells: []interface{}{
-				info.Profile,
-				info.Region,
-				info.ClusterName,
-				info.Namespace,
-				info.PodName,
-				info.IAMRole,
-				info.NodeName,
-			},
-		})
+		cells := []interface{}{}
+		if multiCluster {
+			cells = append(cells, info.Profile, info.Region, info.ClusterName)
+		}
+		cells = append(cells, info.Namespace, info.PodName, info.IAMRole, info.NodeName)
+		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 
 	err := printer.PrintObj(table, os.Stdout)
