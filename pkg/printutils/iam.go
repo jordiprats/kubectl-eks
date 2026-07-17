@@ -62,12 +62,16 @@ func PrintIRSA(noHeaders bool, irsaInfos ...data.IRSAInfo) {
 
 func PrintKube2IAM(noHeaders bool, kube2iamInfos ...data.Kube2IAMInfo) {
 	multiCluster := false
+	multiNamespace := false
 	if len(kube2iamInfos) > 0 {
-		first := kube2iamInfos[0].ClusterName
+		firstCluster := kube2iamInfos[0].ClusterName
+		firstNamespace := kube2iamInfos[0].Namespace
 		for _, info := range kube2iamInfos[1:] {
-			if info.ClusterName != first {
+			if info.ClusterName != firstCluster {
 				multiCluster = true
-				break
+			}
+			if info.Namespace != firstNamespace {
+				multiNamespace = true
 			}
 		}
 	}
@@ -98,8 +102,10 @@ func PrintKube2IAM(noHeaders bool, kube2iamInfos ...data.Kube2IAMInfo) {
 			v1.TableColumnDefinition{Name: "CLUSTER", Type: "string"},
 		)
 	}
+	if multiNamespace {
+		columns = append(columns, v1.TableColumnDefinition{Name: "NAMESPACE", Type: "string"})
+	}
 	columns = append(columns,
-		v1.TableColumnDefinition{Name: "NAMESPACE", Type: "string"},
 		v1.TableColumnDefinition{Name: "POD", Type: "string"},
 		v1.TableColumnDefinition{Name: "IAM ROLE", Type: "string"},
 		v1.TableColumnDefinition{Name: "NODE", Type: "string"},
@@ -112,7 +118,10 @@ func PrintKube2IAM(noHeaders bool, kube2iamInfos ...data.Kube2IAMInfo) {
 		if multiCluster {
 			cells = append(cells, info.Profile, info.Region, info.ClusterName)
 		}
-		cells = append(cells, info.Namespace, info.PodName, info.IAMRole, info.NodeName)
+		if multiNamespace {
+			cells = append(cells, info.Namespace)
+		}
+		cells = append(cells, info.PodName, info.IAMRole, info.NodeName)
 		table.Rows = append(table.Rows, v1.TableRow{Cells: cells})
 	}
 
