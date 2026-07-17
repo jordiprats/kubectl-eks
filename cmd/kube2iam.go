@@ -14,13 +14,14 @@ var kube2iamCmd = &cobra.Command{
 	Use:     "kube2iam",
 	Aliases: []string{"k2iam", "k2i"},
 	Short:   "List pods with kube2iam annotations and their IAM roles (multi-cluster)",
-	Long: `List pods with kube2iam annotations and their associated IAM role ARNs across multiple clusters.
+	Long: `List pods with kube2iam annotations and their associated IAM role ARNs.
 
-Shows the pod name, namespace, and associated IAM role from the
-iam.amazonaws.com/role annotation.
+Shows the pod name, namespace, IAM role from the iam.amazonaws.com/role annotation,
+and the node the pod is running on.
 
-Similar to 'kubectl eks mget' but specifically for kube2iam annotated pods.`,
-	Example: `  # List all kube2iam pods across all clusters
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.`,
+	Example: `  # List all kube2iam pods in current cluster
   kubectl eks kube2iam
 
   # List kube2iam pods in specific namespace
@@ -29,7 +30,7 @@ Similar to 'kubectl eks mget' but specifically for kube2iam annotated pods.`,
   # List kube2iam pods across all namespaces
   kubectl eks kube2iam -A
 
-  # Filter by cluster name
+  # List across clusters matching filter
   kubectl eks kube2iam --cluster-contains prod
 
   # Filter by AWS profile
@@ -48,45 +49,97 @@ Similar to 'kubectl eks mget' but specifically for kube2iam annotated pods.`,
 		allNamespaces, _ := cmd.Flags().GetBool("all-namespaces")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 
-		// Load cluster list (multi-cluster mode)
-		clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
-		if err != nil {
-			log.Fatalf("Error loading cluster list: %v", err)
-		}
+		// Check if any filter is specified
+		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
+			nameNotContains != "" || region != "" || version != ""
 
 		// Default to all namespaces
 		if !allNamespaces && namespace == "" {
 			allNamespaces = true
 		}
 
-		effectiveNamespace := namespace
 		if allNamespaces {
-			effectiveNamespace = ""
+			namespace = ""
+		}
+
+		var clusterList []data.ClusterInfo
+
+		if hasFilters {
+			loadCacheFromDisk()
+			if CachedData == nil {
+				CachedData = &data.KubeCtlEksCache{
+					ClusterByARN: make(map[string]data.ClusterInfo),
+					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
+				}
+			}
+			if CachedData.ClusterList == nil {
+				CachedData.ClusterList = make(map[string]map[string][]data.ClusterInfo)
+			}
+
+			var err error
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			if err != nil {
+				log.Fatalf("Error loading cluster list: %v", err)
+			}
+		} else {
+			clusterInfo, err := GetCurrentClusterInfo()
+			if err != nil {
+				log.Fatalf("Error getting current cluster info: %v", err)
+			}
+			clusterList = []data.ClusterInfo{clusterInfo}
+		}
+
+		if len(clusterList) == 0 {
+			log.Println("No clusters found matching the specified filters")
+			return
 		}
 
 		kube2iamInfos := make([]data.Kube2IAMInfo, 0)
 
-		for _, clusterInfo := range clusterList {
-			restConfig, err := GetRestConfigForCluster(clusterInfo)
-			if err != nil {
-				if verbose {
-					log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+		if hasFilters {
+			for _, clusterInfo := range clusterList {
+				restConfig, err := GetRestConfigForCluster(clusterInfo)
+				if err != nil {
+					if verbose {
+						log.Printf("Warning: Failed to get kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
+					}
+					continue
 				}
-				continue
-			}
 
-			pods, err := k8s.GetPodsWithKube2IAMWithConfig(context.Background(), restConfig, effectiveNamespace)
-			if err != nil {
-				if verbose {
-					log.Printf("Warning: Failed to get pods from cluster %s: %v", clusterInfo.ClusterName, err)
+				pods, err := k8s.GetPodsWithKube2IAMWithConfig(context.Background(), restConfig, namespace)
+				if err != nil {
+					if verbose {
+						log.Printf("Warning: Failed to get pods from cluster %s: %v", clusterInfo.ClusterName, err)
+					}
+					continue
 				}
-				continue
+
+				for _, pod := range pods {
+					roleArn := pod.Annotations["iam.amazonaws.com/role"]
+					if roleArn != "" {
+						kube2iamInfos = append(kube2iamInfos, data.Kube2IAMInfo{
+							Profile:     clusterInfo.AWSProfile,
+							Region:      clusterInfo.Region,
+							ClusterName: clusterInfo.ClusterName,
+							Namespace:   pod.Namespace,
+							PodName:     pod.Name,
+							IAMRole:     roleArn,
+							NodeName:    pod.Spec.NodeName,
+						})
+					}
+				}
+			}
+		} else {
+			clusterInfo := clusterList[0]
+			pods, err := k8s.GetPodsWithKube2IAM(context.Background(), namespace)
+			if err != nil {
+				log.Fatalf("Error getting pods: %v", err)
 			}
 
 			for _, pod := range pods {
 				roleArn := pod.Annotations["iam.amazonaws.com/role"]
 				if roleArn != "" {
-					info := data.Kube2IAMInfo{
+					kube2iamInfos = append(kube2iamInfos, data.Kube2IAMInfo{
 						Profile:     clusterInfo.AWSProfile,
 						Region:      clusterInfo.Region,
 						ClusterName: clusterInfo.ClusterName,
@@ -94,8 +147,7 @@ Similar to 'kubectl eks mget' but specifically for kube2iam annotated pods.`,
 						PodName:     pod.Name,
 						IAMRole:     roleArn,
 						NodeName:    pod.Spec.NodeName,
-					}
-					kube2iamInfos = append(kube2iamInfos, info)
+					})
 				}
 			}
 		}
@@ -106,7 +158,10 @@ Similar to 'kubectl eks mget' but specifically for kube2iam annotated pods.`,
 		}
 
 		printutils.PrintKube2IAM(noHeaders, kube2iamInfos...)
-		saveCacheToDisk()
+
+		if hasFilters {
+			saveCacheToDisk()
+		}
 	},
 }
 
