@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -16,6 +18,32 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+var daysPattern = regexp.MustCompile(`^(\d+)d(.*)$`)
+
+func parseDurationWithDays(s string) (time.Duration, error) {
+	total := time.Duration(0)
+	rest := strings.TrimSpace(s)
+	if m := daysPattern.FindStringSubmatch(rest); m != nil {
+		days, err := strconv.Atoi(m[1])
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration %q", s)
+		}
+		total += time.Duration(days) * 24 * time.Hour
+		rest = m[2]
+	}
+	if rest != "" {
+		d, err := time.ParseDuration(rest)
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration %q: %w", s, err)
+		}
+		total += d
+	}
+	if total == 0 && s != "0" {
+		return 0, fmt.Errorf("invalid duration %q", s)
+	}
+	return total, nil
+}
 
 var nodesCmd = &cobra.Command{
 	Use:     "nodes",
@@ -49,6 +77,16 @@ Without filters, queries the current cluster context.`,
 		output, _ := cmd.Flags().GetString("output")
 		managedByContains, _ := cmd.Flags().GetString("managed-by")
 		watchInterval, _ := cmd.Flags().GetDuration("watch")
+		olderStr, _ := cmd.Flags().GetString("older")
+
+		var olderThan time.Duration
+		if olderStr != "" {
+			var err error
+			olderThan, err = parseDurationWithDays(olderStr)
+			if err != nil {
+				log.Fatalf("Invalid --older value: %v", err)
+			}
+		}
 
 		// Get filter flags
 		profile, _ := cmd.Flags().GetString("profile")
@@ -104,7 +142,7 @@ Without filters, queries the current cluster context.`,
 			effectiveInterval := watchInterval
 			for {
 				start := time.Now()
-				allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains)
+				allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains, olderThan)
 				elapsed := time.Since(start)
 
 				printutils.ClearScreen()
@@ -127,12 +165,12 @@ Without filters, queries the current cluster context.`,
 				}
 			}
 		} else {
-			runMultiClusterNodes(clusterList, noHeaders, output == "wide", skipContextSwitch, managedByContains)
+			runMultiClusterNodes(clusterList, noHeaders, output == "wide", skipContextSwitch, managedByContains, olderThan)
 		}
 	},
 }
 
-func collectNodes(clusterList []data.ClusterInfo, skipContextSwitch bool, managedByContains string) []data.ClusterNodeInfo {
+func collectNodes(clusterList []data.ClusterInfo, skipContextSwitch bool, managedByContains string, olderThan time.Duration) []data.ClusterNodeInfo {
 	allNodes := []data.ClusterNodeInfo{}
 
 	for _, clusterInfo := range clusterList {
@@ -189,16 +227,27 @@ func collectNodes(clusterList []data.ClusterInfo, skipContextSwitch bool, manage
 		allNodes = filtered
 	}
 
+	if olderThan > 0 {
+		cutoff := time.Now().Add(-olderThan)
+		filtered := allNodes[:0]
+		for _, n := range allNodes {
+			if !n.Node.Created.IsZero() && n.Node.Created.Before(cutoff) {
+				filtered = append(filtered, n)
+			}
+		}
+		allNodes = filtered
+	}
+
 	return allNodes
 }
 
-func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide bool, skipContextSwitch bool, managedByContains string) {
+func runMultiClusterNodes(clusterList []data.ClusterInfo, noHeaders bool, wide bool, skipContextSwitch bool, managedByContains string, olderThan time.Duration) {
 	if len(clusterList) == 0 {
 		fmt.Println("No clusters found matching the specified filters")
 		return
 	}
 
-	allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains)
+	allNodes := collectNodes(clusterList, skipContextSwitch, managedByContains, olderThan)
 	printutils.PrintMultiClusterNodes(noHeaders, wide, allNodes)
 	saveCacheToDisk()
 }
@@ -214,6 +263,7 @@ func init() {
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	nodesCmd.Flags().StringP("output", "o", "", "Output format: wide")
 	nodesCmd.Flags().StringP("managed-by", "m", "", "Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)")
+	nodesCmd.Flags().String("older", "", "Only show nodes older than this duration (e.g. 1d, 12h, 1d12h)")
 	nodesCmd.Flags().DurationP("watch", "w", 0, "Watch mode: refresh every interval (default 30s, e.g. -w 5s)")
 	nodesCmd.Flags().Lookup("watch").NoOptDefVal = "30s"
 
