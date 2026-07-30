@@ -3,10 +3,10 @@ module github.com/jordiprats/kubectl-eks
 go 1.26.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.43.1
+	github.com/aws/aws-sdk-go-v2 v1.43.2
 	github.com/aws/aws-sdk-go-v2/config v1.32.32
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.75.1
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.317.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.318.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.90.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.1
 	github.com/mark3labs/mcp-go v0.57.0
@@ -24,11 +24,11 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.31 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.32 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.32 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.32 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.33 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.33 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.33 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.32 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.33 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.33.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.1 // indirect
