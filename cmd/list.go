@@ -16,7 +16,7 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [profile-filter]",
 	Short: "List all EKS clusters in your AWS account",
 	Long: `List all EKS clusters in your AWS account with optional filters.
 You can filter by cluster name, region, version, or AWS profile.`,
@@ -69,6 +69,9 @@ You can filter by cluster name, region, version, or AWS profile.`,
 		profile_contains, err := cmd.Flags().GetString("profile-contains")
 		if err != nil {
 			profile_contains = ""
+		}
+		if profile_contains == "" && len(args) > 0 {
+			profile_contains = args[0]
 		}
 
 		profile_not_contains, err := cmd.Flags().GetString("profile-not-contains")
