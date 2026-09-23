@@ -8,7 +8,7 @@ List all EKS clusters in your AWS account with optional filters.
 You can filter by cluster name, region, version, or AWS profile.
 
 ```
-kubectl-eks list [flags]
+kubectl-eks list [profile-filter] [flags]
 ```
 
 ### Examples
@@ -47,6 +47,9 @@ kubectl-eks list [flags]
   # Wide output with node stats
   kubectl eks list -o wide
 
+  # Include the node count for each cluster
+  kubectl eks list -C
+
   # Refresh cached data from AWS
   kubectl eks list --refresh
 ```
@@ -57,6 +60,7 @@ kubectl-eks list [flags]
   -1, --arn-only                      Output only cluster ARNs, one per line
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -C, --node-count                    Include node count for each cluster
   -h, --help                          help for list
   -2, --name-only                     Output only cluster names, one per line
   -o, --output string                 Output format: wide
@@ -86,6 +90,7 @@ kubectl-eks list [flags]
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
       --no-headers                     When using the default or custom-column output format, don't print headers (default print headers)
+      --proxy-url string               Proxy URL to use for requests to the API server
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
       --tls-server-name string         Server name to use for server certificate validation. If it is not provided, the hostname used to contact the server is used

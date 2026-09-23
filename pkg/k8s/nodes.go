@@ -95,6 +95,20 @@ func GetNodesWithConfig(restConfig *rest.Config) ([]data.NodeInfo, error) {
 	return nodeList, nil
 }
 
+func GetNodeCountWithConfig(restConfig *rest.Config) (int, error) {
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create clientset: %w", err)
+	}
+
+	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	return len(nodes.Items), nil
+}
+
 func GetNodes(configFlags *genericclioptions.ConfigFlags) ([]data.NodeInfo, error) {
 	config, err := configFlags.ToRESTConfig()
 	if err != nil {
