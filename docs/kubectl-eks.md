@@ -47,6 +47,7 @@ kubectl-eks [flags]
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
       --no-headers                     When using the default or custom-column output format, don't print headers (default print headers)
+      --proxy-url string               Proxy URL to use for requests to the API server
   -u, --refresh                        Do not use cached data, refresh from AWS
   -r, --region string                  Switch to the same cluster in a different region
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
@@ -67,7 +68,7 @@ kubectl-eks [flags]
 * [kubectl-eks insights](kubectl-eks_insights.md)	 - Show EKS cluster insights and recommendations
 * [kubectl-eks irsa](kubectl-eks_irsa.md)	 - List service accounts with IRSA annotations and their IAM roles
 * [kubectl-eks karpenter](kubectl-eks_karpenter.md)	 - Karpenter resource management commands
-* [kubectl-eks kube2iam](kubectl-eks_kube2iam.md)	 - List pods with kube2iam annotations and their IAM roles
+* [kubectl-eks kube2iam](kubectl-eks_kube2iam.md)	 - List pods with kube2iam annotations and their IAM roles (multi-cluster)
 * [kubectl-eks list](kubectl-eks_list.md)	 - List all EKS clusters in your AWS account
 * [kubectl-eks mcheck](kubectl-eks_mcheck.md)	 - Check health status of resources across multiple clusters
 * [kubectl-eks mcp-server](kubectl-eks_mcp-server.md)	 - Start an MCP (Model Context Protocol) server over stdio
