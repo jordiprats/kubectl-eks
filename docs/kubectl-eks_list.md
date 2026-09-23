@@ -60,10 +60,10 @@ kubectl-eks list [profile-filter] [flags]
   -1, --arn-only                      Output only cluster ARNs, one per line
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
-  -C, --node-count                    Include node count for each cluster
+  -C, --node-count                    Include node count for each cluster (not with --output wide)
   -h, --help                          help for list
   -2, --name-only                     Output only cluster names, one per line
-  -o, --output string                 Output format: wide
+  -o, --output string                 Output format (supported: wide)
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring

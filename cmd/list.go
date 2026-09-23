@@ -57,7 +57,15 @@ You can filter by cluster name, region, version, or AWS profile.`,
   kubectl eks list -C
 
   # Refresh cached data from AWS
-  kubectl eks list --refresh`,
+	  kubectl eks list --refresh`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		output, _ := cmd.Flags().GetString("output")
+		nodeCount, _ := cmd.Flags().GetBool("node-count")
+		arnOnly, _ := cmd.Flags().GetBool("arn-only")
+		nameOnly, _ := cmd.Flags().GetBool("name-only")
+
+		return validateListOutputOptions(output, nodeCount, arnOnly, nameOnly)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		refresh, err := cmd.Flags().GetBool("refresh")
 		if err != nil {
@@ -235,6 +243,34 @@ You can filter by cluster name, region, version, or AWS profile.`,
 	},
 }
 
+func validateListOutputOptions(output string, nodeCount, arnOnly, nameOnly bool) error {
+	if err := validateOutputFormat(output); err != nil {
+		return err
+	}
+	if arnOnly && nameOnly {
+		return fmt.Errorf("--arn-only and --name-only cannot be used together")
+	}
+	if (arnOnly || nameOnly) && output != "" {
+		return fmt.Errorf("--output cannot be used with --arn-only or --name-only")
+	}
+	if (arnOnly || nameOnly) && nodeCount {
+		return fmt.Errorf("--node-count cannot be used with --arn-only or --name-only")
+	}
+	if output == "wide" && nodeCount {
+		return fmt.Errorf("--node-count cannot be used with --output wide because wide already includes node health")
+	}
+
+	return nil
+}
+
+func validateOutputFormat(output string) error {
+	if output != "" && output != "wide" {
+		return fmt.Errorf("invalid output format %q: supported format is wide", output)
+	}
+
+	return nil
+}
+
 func loadClusters(profile, region string) {
 	// fmt.Printf("Loading clusters using profile: %s region: %s\n", profile, region)
 
@@ -299,8 +335,8 @@ func init() {
 	listCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	listCmd.Flags().BoolP("arn-only", "1", false, "Output only cluster ARNs, one per line")
 	listCmd.Flags().BoolP("name-only", "2", false, "Output only cluster names, one per line")
-	listCmd.Flags().StringP("output", "o", "", "Output format: wide")
-	listCmd.Flags().BoolP("node-count", "C", false, "Include node count for each cluster")
+	listCmd.Flags().StringP("output", "o", "", "Output format (supported: wide)")
+	listCmd.Flags().BoolP("node-count", "C", false, "Include node count for each cluster (not with --output wide)")
 
 	rootCmd.AddCommand(listCmd)
 }

@@ -44,11 +44,11 @@ kubectl-eks nodes [flags]
 ```
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
-  -C, --node-count                    Show clusters with node counts instead of individual nodes
+  -C, --node-count                    Show cluster node counts instead of individual nodes (not with --output wide)
   -h, --help                          help for nodes
   -m, --managed-by string             Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)
       --older string                  Only show nodes older than this duration (e.g. 1d, 12h, 1d12h)
-  -o, --output string                 Output format: wide
+  -o, --output string                 Output format (supported: wide)
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
