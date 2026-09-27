@@ -51,7 +51,7 @@ kubectl-eks list [profile-filter] [flags]
   kubectl eks list -C
 
   # Refresh cached data from AWS
-  kubectl eks list --refresh
+	  kubectl eks list --refresh
 ```
 
 ### Options
@@ -60,9 +60,9 @@ kubectl-eks list [profile-filter] [flags]
   -1, --arn-only                      Output only cluster ARNs, one per line
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
-  -C, --node-count                    Include node count for each cluster (not with --output wide)
   -h, --help                          help for list
   -2, --name-only                     Output only cluster names, one per line
+  -C, --node-count                    Include node count for each cluster (not with --output wide)
   -o, --output string                 Output format (supported: wide)
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
