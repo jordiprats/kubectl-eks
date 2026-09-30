@@ -60,8 +60,8 @@ Without filters, queries the current cluster context.`,
 	Example: `  # List nodes for current cluster
   kubectl eks nodes
 
-	# List nodes for current cluster with pressure indicators
-	kubectl eks nodes -o wide
+  # List nodes for current cluster with pressure indicators
+  kubectl eks nodes -o wide
 
   # List nodes across clusters matching filter
   kubectl eks nodes --cluster-contains prod
@@ -70,7 +70,19 @@ Without filters, queries the current cluster context.`,
   kubectl eks nodes --profile my-aws-profile
 
   # List nodes across all clusters in a region
-  kubectl eks nodes --region us-west-2`,
+  kubectl eks nodes --region us-west-2
+
+  # Show one row per cluster with its node count
+	  kubectl eks nodes -C --region us-west-2`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		output, _ := cmd.Flags().GetString("output")
+		nodeCount, _ := cmd.Flags().GetBool("node-count")
+		managedBy, _ := cmd.Flags().GetString("managed-by")
+		older, _ := cmd.Flags().GetString("older")
+		watch, _ := cmd.Flags().GetDuration("watch")
+
+		return validateNodesOutputOptions(output, nodeCount, managedBy, older, watch)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 		refresh, _ := cmd.Flags().GetBool("refresh")
@@ -78,6 +90,7 @@ Without filters, queries the current cluster context.`,
 		managedByContains, _ := cmd.Flags().GetString("managed-by")
 		watchInterval, _ := cmd.Flags().GetDuration("watch")
 		olderStr, _ := cmd.Flags().GetString("older")
+		nodeCount, _ := cmd.Flags().GetBool("node-count")
 
 		var olderThan time.Duration
 		if olderStr != "" {
@@ -108,7 +121,7 @@ Without filters, queries the current cluster context.`,
 		var clusterList []data.ClusterInfo
 		skipContextSwitch := false
 
-		if hasFilters {
+		if hasFilters || nodeCount {
 			// Ensure cache is initialized before LoadClusterList
 			loadCacheFromDisk()
 			if CachedData == nil {
@@ -122,7 +135,11 @@ Without filters, queries the current cluster context.`,
 			}
 
 			var err error
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			if nodeCount {
+				clusterList, err = LoadAllClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			} else {
+				clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			}
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -164,10 +181,41 @@ Without filters, queries the current cluster context.`,
 				case <-timer.C:
 				}
 			}
+		} else if nodeCount {
+			if output == "wide" {
+				clusterList = enrichClusterNodeStats(clusterList)
+			} else {
+				clusterList = enrichClusterNodeCounts(clusterList)
+			}
+			printutils.PrintClustersWithNodeCount(noHeaders, true, output == "wide", clusterList...)
+			saveCacheToDisk()
 		} else {
 			runMultiClusterNodes(clusterList, noHeaders, output == "wide", skipContextSwitch, managedByContains, olderThan)
 		}
 	},
+}
+
+func validateNodesOutputOptions(output string, nodeCount bool, managedBy, older string, watch time.Duration) error {
+	if err := validateOutputFormat(output); err != nil {
+		return err
+	}
+	if !nodeCount {
+		return nil
+	}
+	if output == "wide" {
+		return fmt.Errorf("--node-count cannot be used with --output wide because wide already includes node details")
+	}
+	if managedBy != "" {
+		return fmt.Errorf("--managed-by cannot be used with --node-count")
+	}
+	if older != "" {
+		return fmt.Errorf("--older cannot be used with --node-count")
+	}
+	if watch > 0 {
+		return fmt.Errorf("--watch cannot be used with --node-count")
+	}
+
+	return nil
 }
 
 func collectNodes(clusterList []data.ClusterInfo, skipContextSwitch bool, managedByContains string, olderThan time.Duration) []data.ClusterNodeInfo {
@@ -261,7 +309,8 @@ func init() {
 	nodesCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	nodesCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
-	nodesCmd.Flags().StringP("output", "o", "", "Output format: wide")
+	nodesCmd.Flags().StringP("output", "o", "", "Output format (supported: wide)")
+	nodesCmd.Flags().BoolP("node-count", "C", false, "Show cluster node counts instead of individual nodes (not with --output wide)")
 	nodesCmd.Flags().StringP("managed-by", "m", "", "Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)")
 	nodesCmd.Flags().String("older", "", "Only show nodes older than this duration (e.g. 1d, 12h, 1d12h)")
 	nodesCmd.Flags().DurationP("watch", "w", 0, "Watch mode: refresh every interval (default 30s, e.g. -w 5s)")

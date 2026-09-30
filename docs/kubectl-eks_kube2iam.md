@@ -1,13 +1,16 @@
 ## kubectl-eks kube2iam
 
-List pods with kube2iam annotations and their IAM roles
+List pods with kube2iam annotations and their IAM roles (multi-cluster)
 
 ### Synopsis
 
 List pods with kube2iam annotations and their associated IAM role ARNs.
 
-Shows the pod name, namespace, and associated IAM role from the
-iam.amazonaws.com/role annotation.
+Shows the pod name, namespace, IAM role from the iam.amazonaws.com/role annotation,
+and the node the pod is running on.
+
+When cluster filters are provided, queries multiple clusters.
+Without filters, queries the current cluster context.
 
 ```
 kubectl-eks kube2iam [flags]
@@ -16,7 +19,7 @@ kubectl-eks kube2iam [flags]
 ### Examples
 
 ```
-  # List all pods with kube2iam annotations
+  # List all kube2iam pods in current cluster
   kubectl eks kube2iam
 
   # List kube2iam pods in specific namespace
@@ -24,14 +27,29 @@ kubectl-eks kube2iam [flags]
 
   # List kube2iam pods across all namespaces
   kubectl eks kube2iam -A
+
+  # List across clusters matching filter
+  kubectl eks kube2iam --cluster-contains prod
+
+  # Filter by AWS profile
+  kubectl eks kube2iam -p my-aws-profile
 ```
 
 ### Options
 
 ```
-  -A, --all-namespaces     Show kube2iam across all namespaces (default)
-  -h, --help               help for kube2iam
-  -n, --namespace string   Namespace to show kube2iam for
+  -A, --all-namespaces                Show kube2iam across all namespaces (default)
+  -c, --cluster-contains string       Filter by cluster name substring
+  -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
+  -h, --help                          help for kube2iam
+  -n, --namespace string              Namespace to show kube2iam for
+      --no-headers                    Don't print headers
+  -p, --profile string                Filter by exact AWS profile name (account)
+  -q, --profile-contains string       Filter by AWS profile name (account) substring
+  -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+  -u, --refresh                       Do not use cached data, refresh from AWS
+  -r, --region string                 Filter by AWS region
+  -v, --version string                Filter by EKS version
 ```
 
 ### Options inherited from parent commands
@@ -50,7 +68,7 @@ kubectl-eks kube2iam [flags]
       --disable-compression            If true, opt-out of response compression for all requests to the server
       --insecure-skip-tls-verify       If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
-      --no-headers                     When using the default or custom-column output format, don't print headers (default print headers)
+      --proxy-url string               Proxy URL to use for requests to the API server
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
       --tls-server-name string         Server name to use for server certificate validation. If it is not provided, the hostname used to contact the server is used

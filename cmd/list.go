@@ -53,8 +53,19 @@ You can filter by cluster name, region, version, or AWS profile.`,
   # Wide output with node stats
   kubectl eks list -o wide
 
+  # Include the node count for each cluster
+  kubectl eks list -C
+
   # Refresh cached data from AWS
-  kubectl eks list --refresh`,
+	  kubectl eks list --refresh`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		output, _ := cmd.Flags().GetString("output")
+		nodeCount, _ := cmd.Flags().GetBool("node-count")
+		arnOnly, _ := cmd.Flags().GetBool("arn-only")
+		nameOnly, _ := cmd.Flags().GetBool("name-only")
+
+		return validateListOutputOptions(output, nodeCount, arnOnly, nameOnly)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		refresh, err := cmd.Flags().GetBool("refresh")
 		if err != nil {
@@ -114,6 +125,7 @@ You can filter by cluster name, region, version, or AWS profile.`,
 			output = ""
 		}
 		wide := output == "wide"
+		nodeCount, _ := cmd.Flags().GetBool("node-count")
 
 		loadCacheFromDisk()
 		if CachedData == nil {
@@ -215,6 +227,8 @@ You can filter by cluster name, region, version, or AWS profile.`,
 		} else {
 			if wide {
 				clusterList = enrichClusterNodeStats(clusterList)
+			} else if nodeCount {
+				clusterList = enrichClusterNodeCounts(clusterList)
 			}
 
 			noHeaders, err := cmd.Flags().GetBool("no-headers")
@@ -222,11 +236,39 @@ You can filter by cluster name, region, version, or AWS profile.`,
 				noHeaders = false
 			}
 
-			printutils.PrintClustersWithOptions(noHeaders, wide, clusterList...)
+			printutils.PrintClustersWithNodeCount(noHeaders, wide || nodeCount, wide, clusterList...)
 		}
 
 		saveCacheToDisk()
 	},
+}
+
+func validateListOutputOptions(output string, nodeCount, arnOnly, nameOnly bool) error {
+	if err := validateOutputFormat(output); err != nil {
+		return err
+	}
+	if arnOnly && nameOnly {
+		return fmt.Errorf("--arn-only and --name-only cannot be used together")
+	}
+	if (arnOnly || nameOnly) && output != "" {
+		return fmt.Errorf("--output cannot be used with --arn-only or --name-only")
+	}
+	if (arnOnly || nameOnly) && nodeCount {
+		return fmt.Errorf("--node-count cannot be used with --arn-only or --name-only")
+	}
+	if output == "wide" && nodeCount {
+		return fmt.Errorf("--node-count cannot be used with --output wide because wide already includes node health")
+	}
+
+	return nil
+}
+
+func validateOutputFormat(output string) error {
+	if output != "" && output != "wide" {
+		return fmt.Errorf("invalid output format %q: supported format is wide", output)
+	}
+
+	return nil
 }
 
 func loadClusters(profile, region string) {
@@ -293,7 +335,8 @@ func init() {
 	listCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
 	listCmd.Flags().BoolP("arn-only", "1", false, "Output only cluster ARNs, one per line")
 	listCmd.Flags().BoolP("name-only", "2", false, "Output only cluster names, one per line")
-	listCmd.Flags().StringP("output", "o", "", "Output format: wide")
+	listCmd.Flags().StringP("output", "o", "", "Output format (supported: wide)")
+	listCmd.Flags().BoolP("node-count", "C", false, "Include node count for each cluster (not with --output wide)")
 
 	rootCmd.AddCommand(listCmd)
 }
@@ -359,6 +402,24 @@ func enrichClusterNodeStats(clusterList []data.ClusterInfo) []data.ClusterInfo {
 		cluster.MemoryUsedTotal = resource.NewQuantity(totalMemUsedBytes, resource.BinarySI).String()
 		cluster.MemoryCapacityTotal = resource.NewQuantity(totalMemCapacityBytes, resource.BinarySI).String()
 		cluster.MemoryAllocatableTotal = resource.NewQuantity(totalMemAllocBytes, resource.BinarySI).String()
+	}
+
+	return clusterList
+}
+
+func enrichClusterNodeCounts(clusterList []data.ClusterInfo) []data.ClusterInfo {
+	for i := range clusterList {
+		cluster := &clusterList[i]
+
+		restConfig, err := GetRestConfigForCluster(*cluster)
+		if err != nil {
+			continue
+		}
+
+		cluster.NodeCount, err = k8s.GetNodeCountWithConfig(restConfig)
+		if err != nil {
+			cluster.NodeCount = 0
+		}
 	}
 
 	return clusterList

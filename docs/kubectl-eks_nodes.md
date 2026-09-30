@@ -23,8 +23,8 @@ kubectl-eks nodes [flags]
   # List nodes for current cluster
   kubectl eks nodes
 
-	# List nodes for current cluster with pressure indicators
-	kubectl eks nodes -o wide
+  # List nodes for current cluster with pressure indicators
+  kubectl eks nodes -o wide
 
   # List nodes across clusters matching filter
   kubectl eks nodes --cluster-contains prod
@@ -34,6 +34,9 @@ kubectl-eks nodes [flags]
 
   # List nodes across all clusters in a region
   kubectl eks nodes --region us-west-2
+
+  # Show one row per cluster with its node count
+	  kubectl eks nodes -C --region us-west-2
 ```
 
 ### Options
@@ -43,7 +46,9 @@ kubectl-eks nodes [flags]
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for nodes
   -m, --managed-by string             Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)
-  -o, --output string                 Output format: wide
+  -C, --node-count                    Show cluster node counts instead of individual nodes (not with --output wide)
+      --older string                  Only show nodes older than this duration (e.g. 1d, 12h, 1d12h)
+  -o, --output string                 Output format (supported: wide)
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
@@ -71,6 +76,7 @@ kubectl-eks nodes [flags]
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
       --no-headers                     When using the default or custom-column output format, don't print headers (default print headers)
+      --proxy-url string               Proxy URL to use for requests to the API server
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
       --tls-server-name string         Server name to use for server certificate validation. If it is not provided, the hostname used to contact the server is used

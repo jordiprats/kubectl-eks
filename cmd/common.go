@@ -14,12 +14,20 @@ import (
 )
 
 func LoadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
+	return loadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, false, refresh...)
+}
+
+func LoadAllClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
+	return loadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, true, refresh...)
+}
+
+func loadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, allClusters bool, refresh ...bool) ([]data.ClusterInfo, error) {
 	clusterList := []data.ClusterInfo{}
 
 	doRefresh := len(refresh) > 0 && refresh[0]
 
 	// if filters are empty, use current cluster
-	if profile == "" && profile_contains == "" && profile_not_contains == "" && name_contains == "" && name_not_contains == "" && region == "" && version == "" {
+	if !allClusters && profile == "" && profile_contains == "" && profile_not_contains == "" && name_contains == "" && name_not_contains == "" && region == "" && version == "" {
 		clusterArn := ""
 
 		// Load Kubernetes configuration

@@ -50,9 +50,15 @@ kubectl-eks nodegroups [flags]
 
 ```
   -a, --ami string                    Describe AMI used by the nodegroup
+  -b, --bootstrap-regex string        Search bootstrap arguments with regex (shows matched string)
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for nodegroups
+      --ng strings                    Filter by exact nodegroup name (repeatable)
+  -m, --ng-contains strings           Filter by nodegroup name substring (repeatable)
+      --ng-not strings                Exclude by exact nodegroup name (repeatable)
+  -M, --ng-not-contains strings       Exclude nodegroups whose name contains substring (repeatable)
+  -o, --output string                 Output format: wide
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
@@ -80,6 +86,7 @@ kubectl-eks nodegroups [flags]
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
       --no-headers                     When using the default or custom-column output format, don't print headers (default print headers)
+      --proxy-url string               Proxy URL to use for requests to the API server
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
       --tls-server-name string         Server name to use for server certificate validation. If it is not provided, the hostname used to contact the server is used

@@ -173,6 +173,11 @@ func PrintClusters(noHeaders bool, clusterInfos ...data.ClusterInfo) {
 
 // PrintClustersWithOptions prints cluster info with optional wide columns.
 func PrintClustersWithOptions(noHeaders bool, wide bool, clusterInfos ...data.ClusterInfo) {
+	PrintClustersWithNodeCount(noHeaders, wide, wide, clusterInfos...)
+}
+
+// PrintClustersWithNodeCount prints cluster info with optional node count and wide columns.
+func PrintClustersWithNodeCount(noHeaders bool, nodeCount bool, wide bool, clusterInfos ...data.ClusterInfo) {
 	// Sort by Profile, Region, ClusterName
 	sort.Slice(clusterInfos, func(i, j int) bool {
 		if clusterInfos[i].AWSProfile != clusterInfos[j].AWSProfile {
@@ -207,6 +212,14 @@ func PrintClustersWithOptions(noHeaders bool, wide bool, clusterInfos ...data.Cl
 		if wide {
 			table.ColumnDefinitions = append(table.ColumnDefinitions,
 				v1.TableColumnDefinition{Name: "NODE HEALTH", Type: "string"},
+			)
+		} else if nodeCount {
+			table.ColumnDefinitions = append(table.ColumnDefinitions,
+				v1.TableColumnDefinition{Name: "NODE COUNT", Type: "number"},
+			)
+		}
+		if wide {
+			table.ColumnDefinitions = append(table.ColumnDefinitions,
 				v1.TableColumnDefinition{Name: "CPU USED/TOTAL (REM)", Type: "string"},
 				v1.TableColumnDefinition{Name: "MEMORY USED/TOTAL (REM)", Type: "string"},
 			)
@@ -227,6 +240,14 @@ func PrintClustersWithOptions(noHeaders bool, wide bool, clusterInfos ...data.Cl
 		if wide {
 			table.ColumnDefinitions = append(table.ColumnDefinitions,
 				v1.TableColumnDefinition{Name: "NODE HEALTH", Type: "string"},
+			)
+		} else if nodeCount {
+			table.ColumnDefinitions = append(table.ColumnDefinitions,
+				v1.TableColumnDefinition{Name: "NODE COUNT", Type: "number"},
+			)
+		}
+		if wide {
+			table.ColumnDefinitions = append(table.ColumnDefinitions,
 				v1.TableColumnDefinition{Name: "CPU USED/TOTAL (REM)", Type: "string"},
 				v1.TableColumnDefinition{Name: "MEMORY USED/TOTAL (REM)", Type: "string"},
 			)
@@ -250,6 +271,12 @@ func PrintClustersWithOptions(noHeaders bool, wide bool, clusterInfos ...data.Cl
 			if wide {
 				cells = append(cells,
 					formatClusterNodeHealth(clusterInfo.NodeCount, clusterInfo.NodeReady, clusterInfo.NodeNotReady, clusterInfo.NodeSchedDisabled),
+				)
+			} else if nodeCount {
+				cells = append(cells, clusterInfo.NodeCount)
+			}
+			if wide {
+				cells = append(cells,
 					formatClusterCPUUsedTotalRemaining(clusterInfo.CPUUsedTotal, clusterInfo.CPUCapacityTotal, clusterInfo.CPUAllocatableTotal),
 					formatClusterMemoryUsedTotalRemaining(clusterInfo.MemoryUsedTotal, clusterInfo.MemoryCapacityTotal, clusterInfo.MemoryAllocatableTotal),
 				)
@@ -269,6 +296,12 @@ func PrintClustersWithOptions(noHeaders bool, wide bool, clusterInfos ...data.Cl
 			if wide {
 				cells = append(cells,
 					formatClusterNodeHealth(clusterInfo.NodeCount, clusterInfo.NodeReady, clusterInfo.NodeNotReady, clusterInfo.NodeSchedDisabled),
+				)
+			} else if nodeCount {
+				cells = append(cells, clusterInfo.NodeCount)
+			}
+			if wide {
+				cells = append(cells,
 					formatClusterCPUUsedTotalRemaining(clusterInfo.CPUUsedTotal, clusterInfo.CPUCapacityTotal, clusterInfo.CPUAllocatableTotal),
 					formatClusterMemoryUsedTotalRemaining(clusterInfo.MemoryUsedTotal, clusterInfo.MemoryCapacityTotal, clusterInfo.MemoryAllocatableTotal),
 				)
