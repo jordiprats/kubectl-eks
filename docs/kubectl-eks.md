@@ -72,6 +72,7 @@ kubectl-eks [flags]
 * [kubectl-eks mcheck](kubectl-eks_mcheck.md)	 - Check health status of resources across multiple clusters
 * [kubectl-eks mcp-server](kubectl-eks_mcp-server.md)	 - Start an MCP (Model Context Protocol) server over stdio
 * [kubectl-eks mget](kubectl-eks_mget.md)	 - Get resources from multiple clusters
+* [kubectl-eks mhelm](kubectl-eks_mhelm.md)	 - List Helm releases from multiple clusters
 * [kubectl-eks nodegroups](kubectl-eks_nodegroups.md)	 - List EKS managed node groups
 * [kubectl-eks nodes](kubectl-eks_nodes.md)	 - List Kubernetes nodes with EC2 instance details
 * [kubectl-eks pod-identity](kubectl-eks_pod-identity.md)	 - List EKS Pod Identity associations from the AWS EKS API

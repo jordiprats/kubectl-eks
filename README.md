@@ -50,6 +50,7 @@ Full command reference documentation is available in the [docs/](docs/) director
 - [kubectl eks use](docs/kubectl-eks_use.md) - Switch to a different cluster
 - [kubectl eks cache](docs/kubectl-eks_cache.md) - Manage the local cluster cache
 - [kubectl eks mget](docs/kubectl-eks_mget.md) - Get resources from multiple clusters
+- [kubectl eks mhelm](docs/kubectl-eks_mhelm.md) - List Helm releases across multiple clusters
 - [kubectl eks mcheck](docs/kubectl-eks_mcheck.md) - Check health status of resources across clusters
 - [kubectl eks nodes](docs/kubectl-eks_nodes.md) - List nodes with EC2 instance details
 - [kubectl eks stats](docs/kubectl-eks_stats.md) - Get cluster statistics
@@ -174,6 +175,9 @@ kubectl eks mget pods -q prod
 
 # Filter resources by field value
 kubectl eks mget pods --filter status.phase=Running
+
+# List Helm releases in all namespaces across clusters
+kubectl eks mhelm -A
 
 # View cluster statistics
 kubectl eks stats
