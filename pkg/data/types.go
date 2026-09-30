@@ -85,6 +85,20 @@ type ResourceResult struct {
 	Status      string
 }
 
+type HelmReleaseResult struct {
+	Profile     string
+	Region      string
+	ClusterName string
+	Namespace   string
+	Name        string
+	Revision    int
+	Updated     string
+	Status      string
+	Chart       string
+	AppVersion  string
+	Error       string
+}
+
 type AWSProfile struct {
 	Name           string
 	DefaultRegion  string
