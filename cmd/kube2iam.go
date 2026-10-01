@@ -45,6 +45,7 @@ Without filters, queries the current cluster context.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 		namespace, _ := cmd.Flags().GetString("namespace")
 		allNamespaces, _ := cmd.Flags().GetBool("all-namespaces")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
@@ -77,7 +78,7 @@ Without filters, queries the current cluster context.`,
 			}
 
 			var err error
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -174,6 +175,7 @@ func init() {
 	kube2iamCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	kube2iamCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	kube2iamCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	kube2iamCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	kube2iamCmd.Flags().StringP("namespace", "n", "", "Namespace to show kube2iam for")
 	kube2iamCmd.Flags().BoolP("all-namespaces", "A", false, "Show kube2iam across all namespaces (default)")
 	kube2iamCmd.Flags().Bool("no-headers", false, "Don't print headers")

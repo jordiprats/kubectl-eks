@@ -56,6 +56,7 @@ kubectl-eks aws-profile [cluster-name-or-arn] [flags]
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for aws-profile
       --newest                        When multiple clusters match, use the newest cluster
+  -V, --not-version string            Exclude clusters with this EKS version
       --oldest                        When multiple clusters match, use the oldest cluster
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring

@@ -7,6 +7,51 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func TestMatchesVersion(t *testing.T) {
+	tests := []struct {
+		name           string
+		clusterVersion string
+		version        string
+		notVersion     string
+		want           bool
+	}{
+		{name: "no filters", clusterVersion: "1.29", want: true},
+		{name: "matching version", clusterVersion: "1.29", version: "1.29", want: true},
+		{name: "different version", clusterVersion: "1.30", version: "1.29", want: false},
+		{name: "excluded version", clusterVersion: "1.29", notVersion: "1.29", want: false},
+		{name: "version not excluded", clusterVersion: "1.30", notVersion: "1.29", want: true},
+		{name: "conflicting filters", clusterVersion: "1.29", version: "1.29", notVersion: "1.29", want: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := matchesVersion(test.clusterVersion, test.version, test.notVersion); got != test.want {
+				t.Fatalf("matchesVersion() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestNotVersionFlagAvailableWhereVersionIsUsed(t *testing.T) {
+	var checkCommands func(*cobra.Command)
+	checkCommands = func(command *cobra.Command) {
+		if command.Flags().Lookup("version") != nil {
+			flag := command.Flags().Lookup("not-version")
+			if flag == nil {
+				t.Errorf("%s command defines --version without --not-version", command.CommandPath())
+			} else if flag.Shorthand != "V" {
+				t.Errorf("%s --not-version shorthand = %q, want %q", command.CommandPath(), flag.Shorthand, "V")
+			}
+		}
+
+		for _, child := range command.Commands() {
+			checkCommands(child)
+		}
+	}
+
+	checkCommands(rootCmd)
+}
+
 func TestNodeCountFlagAvailableOnListAndNodes(t *testing.T) {
 	tests := []struct {
 		name    string

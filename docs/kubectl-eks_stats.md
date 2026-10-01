@@ -26,6 +26,7 @@ kubectl-eks stats [flags]
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for stats
+  -V, --not-version string            Exclude clusters with this EKS version
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring

@@ -157,7 +157,7 @@ func chooseRegionSwitchCluster(current data.ClusterInfo, clusterList []data.Clus
 }
 
 func resolveClusterForSwitch(current data.ClusterInfo, switchMode string, refresh bool) (*data.ClusterInfo, error) {
-	clusterList, err := LoadClusterList([]string{}, current.AWSProfile, "", "", "", "", "", "", refresh)
+	clusterList, err := LoadClusterList([]string{}, current.AWSProfile, "", "", "", "", "", "", "", refresh)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func tryFastSwitch(target, namespace string) string {
 	return candidateARN
 }
 
-func resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version string, refresh, oldest, newest bool) (*data.ClusterInfo, []data.ClusterInfo, error) {
+func resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion string, refresh, oldest, newest bool) (*data.ClusterInfo, []data.ClusterInfo, error) {
 	if oldest && newest {
 		return nil, nil, fmt.Errorf("--oldest and --newest are mutually exclusive")
 	}
@@ -329,7 +329,7 @@ func resolveClusterForUse(target, profile, profileContains, profileNotContains, 
 		return nil, nil, fmt.Errorf("invalid cluster ARN: %q", target)
 	}
 
-	clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+	clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -572,6 +572,10 @@ profile for authentication.`,
 		if err != nil {
 			version = ""
 		}
+		notVersion, err := cmd.Flags().GetString("not-version")
+		if err != nil {
+			notVersion = ""
+		}
 
 		refresh, err := cmd.Flags().GetBool("refresh")
 		if err != nil {
@@ -624,7 +628,7 @@ profile for authentication.`,
 				}
 				baseCluster = current
 			} else {
-				resolved, ambiguousMatches, resolveErr := resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
+				resolved, ambiguousMatches, resolveErr := resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh, oldest, newest)
 				if resolveErr != nil {
 					if len(ambiguousMatches) > 1 {
 						printAmbiguousSelectionHelp(target, ambiguousMatches)
@@ -659,7 +663,7 @@ profile for authentication.`,
 			}
 		}
 
-		clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
+		clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh, oldest, newest)
 		if err != nil {
 			if len(ambiguousMatches) > 1 {
 				printAmbiguousSelectionHelp(target, ambiguousMatches)
@@ -683,6 +687,7 @@ func init() {
 	useCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	useCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	useCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	useCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	useCmd.Flags().String("switch", "", "Switch to the counterpart cluster by dimension: side or region")
 	useCmd.Flags().Bool("oldest", false, "When multiple clusters match, switch to the oldest cluster")
 	useCmd.Flags().Bool("newest", false, "When multiple clusters match, switch to the newest cluster")

@@ -55,6 +55,7 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 		namespace, _ := cmd.Flags().GetString("namespace")
 		showAll, _ := cmd.Flags().GetBool("all")
 		summaryOnly, _ := cmd.Flags().GetBool("summary")
@@ -73,7 +74,7 @@ Use -n to check a specific namespace, use --all to show healthy resources too.`,
 			checkPods, checkDeploys, checkSts, checkDs, checkRs, checkNodes = true, true, true, true, true, true
 		}
 
-		clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+		clusterList, err := LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 		if err != nil {
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
@@ -554,6 +555,7 @@ func init() {
 	mCheckCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	mCheckCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	mCheckCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	mCheckCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	mCheckCmd.Flags().StringP("namespace", "n", "", "Kubernetes namespace (default: all namespaces)")
 	mCheckCmd.Flags().Bool("all", false, "Show all resources including healthy ones")
 	mCheckCmd.Flags().Bool("summary", false, "Show health summary")

@@ -40,6 +40,7 @@ Without filters, queries the current cluster context.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 
 		// Check if any filter is specified
 		hasFilters := profile != "" || profileContains != "" || profileNotContains != "" || nameContains != "" ||
@@ -60,7 +61,7 @@ Without filters, queries the current cluster context.`,
 			}
 
 			var err error
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -152,6 +153,7 @@ func init() {
 	insightsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	insightsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	insightsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	insightsCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 
 	rootCmd.AddCommand(insightsCmd)
 }

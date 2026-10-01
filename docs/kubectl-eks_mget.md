@@ -60,6 +60,7 @@ kubectl-eks mget [resource-type] [resource-name] [flags]
   -h, --help                          help for mget
   -n, --namespace string              Kubernetes namespace
       --no-headers                    Don't print headers
+  -V, --not-version string            Exclude clusters with this EKS version
   -o, --output string                 Output format: wide|json|yaml|jsonpath=...
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring

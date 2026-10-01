@@ -95,6 +95,7 @@ type clusterFilterArgs struct {
 	ClusterNotContains string
 	Region             string
 	Version            string
+	NotVersion         string
 }
 
 func parseClusterFilters(request mcp.CallToolRequest) clusterFilterArgs {
@@ -106,12 +107,13 @@ func parseClusterFilters(request mcp.CallToolRequest) clusterFilterArgs {
 		ClusterNotContains: request.GetString("cluster_not_contains", ""),
 		Region:             request.GetString("region", ""),
 		Version:            request.GetString("version", ""),
+		NotVersion:         request.GetString("not_version", ""),
 	}
 }
 
 func (f clusterFilterArgs) hasFilters() bool {
 	return f.Profile != "" || f.ProfileContains != "" || f.ProfileNotContains != "" || f.ClusterContains != "" ||
-		f.ClusterNotContains != "" || f.Region != "" || f.Version != ""
+		f.ClusterNotContains != "" || f.Region != "" || f.Version != "" || f.NotVersion != ""
 }
 
 func (f clusterFilterArgs) loadClusters() ([]data.ClusterInfo, error) {
@@ -130,7 +132,7 @@ func (f clusterFilterArgs) loadClusters() ([]data.ClusterInfo, error) {
 			ClusterList:  make(map[string]map[string][]data.ClusterInfo),
 		}
 	}
-	return LoadClusterList([]string{}, f.Profile, f.ProfileContains, f.ProfileNotContains, f.ClusterContains, f.ClusterNotContains, f.Region, f.Version)
+	return LoadClusterList([]string{}, f.Profile, f.ProfileContains, f.ProfileNotContains, f.ClusterContains, f.ClusterNotContains, f.Region, f.Version, f.NotVersion)
 }
 
 func addClusterFilterProps(tool mcp.Tool) mcp.Tool {
@@ -144,6 +146,7 @@ func addClusterFilterProps(tool mcp.Tool) mcp.Tool {
 		mcp.WithString("cluster_not_contains", mcp.Description("Exclude clusters whose name contains this substring")),
 		mcp.WithString("region", mcp.Description("Filter by AWS region")),
 		mcp.WithString("version", mcp.Description("Filter by EKS Kubernetes version")),
+		mcp.WithString("not_version", mcp.Description("Exclude clusters with this EKS Kubernetes version")),
 	)
 }
 
@@ -454,7 +457,7 @@ func handleUseCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 			}
 		}
 
-		resolved, ambiguous, err := resolveClusterForUse(cluster, profile, profileContains, "", "", "", region, "", false, false, false)
+		resolved, ambiguous, err := resolveClusterForUse(cluster, profile, profileContains, "", "", "", region, "", "", false, false, false)
 		if err != nil {
 			if ambiguous != nil {
 				names := make([]string, len(ambiguous))

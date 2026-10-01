@@ -56,8 +56,12 @@ multiple clusters matching your criteria.`,
 		if err != nil {
 			version = ""
 		}
+		notVersion, err := cmd.Flags().GetString("not-version")
+		if err != nil {
+			notVersion = ""
+		}
 
-		clusterList, err := LoadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, refresh)
+		clusterList, err := LoadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, notVersion, refresh)
 		if err != nil {
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
@@ -98,6 +102,7 @@ func init() {
 	statsCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	statsCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	statsCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	statsCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 
 	rootCmd.AddCommand(statsCmd)
 }

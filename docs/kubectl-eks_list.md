@@ -29,6 +29,9 @@ kubectl-eks list [profile-filter] [flags]
   # Filter by EKS version
   kubectl eks list --version 1.29
 
+	# Exclude an EKS version
+	kubectl eks list --not-version 1.29
+
   # Filter by exact AWS profile name
   kubectl eks list --profile my-profile
 
@@ -63,6 +66,7 @@ kubectl-eks list [profile-filter] [flags]
   -h, --help                          help for list
   -2, --name-only                     Output only cluster names, one per line
   -C, --node-count                    Include node count for each cluster (not with --output wide)
+  -V, --not-version string            Exclude clusters with this EKS version
   -o, --output string                 Output format (supported: wide)
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring

@@ -147,7 +147,7 @@ kubectl-eks mcp-server
 | `get_fargate_profiles` | List Fargate profiles and selectors |
 | `get_quotas` | Show ResourceQuota usage per namespace |
 
-Most multi-cluster tools accept optional filter parameters: `profile`, `profile_contains`, `profile_not_contains`, `cluster_contains`, `cluster_not_contains`, `region`, and `version`.
+Most multi-cluster tools accept optional filter parameters: `profile`, `profile_contains`, `profile_not_contains`, `cluster_contains`, `cluster_not_contains`, `region`, `version`, and `not_version`.
 
 ## <a name='QuickStart'></a>Quick Start
 
@@ -160,6 +160,9 @@ kubectl eks list -c prod
 
 # Exclude profiles containing "prod"
 kubectl eks list -Q prod
+
+# Exclude clusters running EKS version 1.29
+kubectl eks list --not-version 1.29
 
 # Switch to a specific cluster
 kubectl eks use my-cluster

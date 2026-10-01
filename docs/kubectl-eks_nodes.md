@@ -47,6 +47,7 @@ kubectl-eks nodes [flags]
   -h, --help                          help for nodes
   -m, --managed-by string             Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)
   -C, --node-count                    Show cluster node counts instead of individual nodes (not with --output wide)
+  -V, --not-version string            Exclude clusters with this EKS version
       --older string                  Only show nodes older than this duration (e.g. 1d, 12h, 1d12h)
   -o, --output string                 Output format (supported: wide)
   -p, --profile string                Filter by exact AWS profile name (account)
