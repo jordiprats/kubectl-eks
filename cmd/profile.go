@@ -61,16 +61,17 @@ pick one.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 		refresh, _ := cmd.Flags().GetBool("refresh")
 		oldest, _ := cmd.Flags().GetBool("oldest")
 		newest, _ := cmd.Flags().GetBool("newest")
 
-		hasFilters := profileContains != "" || profileNotContains != "" || nameContains != "" || nameNotContains != "" || region != "" || version != "" || refresh || oldest || newest
+		hasFilters := profileContains != "" || profileNotContains != "" || nameContains != "" || nameNotContains != "" || region != "" || version != "" || notVersion != "" || refresh || oldest || newest
 
 		// When filters are provided (or no args at all and filters narrow it down),
 		// use the same resolution logic as 'use'.
 		if hasFilters || target != "" {
-			clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, "", profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh, oldest, newest)
+			clusterInfo, ambiguousMatches, err := resolveClusterForUse(target, "", profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh, oldest, newest)
 			if err != nil {
 				if len(ambiguousMatches) > 1 {
 					printAmbiguousSelectionHelp(target, ambiguousMatches)
@@ -133,6 +134,7 @@ func init() {
 	profileCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	profileCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	profileCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	profileCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	profileCmd.Flags().Bool("oldest", false, "When multiple clusters match, use the oldest cluster")
 	profileCmd.Flags().Bool("newest", false, "When multiple clusters match, use the newest cluster")
 

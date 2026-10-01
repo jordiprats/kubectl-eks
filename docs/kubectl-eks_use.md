@@ -33,6 +33,7 @@ kubectl-eks use [cluster-name-or-arn] [flags]
   -h, --help                          help for use
   -n, --namespace string              Set specific namespace for the context
       --newest                        When multiple clusters match, switch to the newest cluster
+  -V, --not-version string            Exclude clusters with this EKS version
       --oldest                        When multiple clusters match, switch to the oldest cluster
   -p, --profile string                Set specific AWS profile for the context
   -q, --profile-contains string       Filter by AWS profile name (account) substring

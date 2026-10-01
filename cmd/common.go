@@ -13,21 +13,25 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func LoadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
-	return loadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, false, refresh...)
+func LoadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, notVersion string, refresh ...bool) ([]data.ClusterInfo, error) {
+	return loadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, notVersion, false, refresh...)
 }
 
-func LoadAllClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, refresh ...bool) ([]data.ClusterInfo, error) {
-	return loadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, true, refresh...)
+func LoadAllClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, notVersion string, refresh ...bool) ([]data.ClusterInfo, error) {
+	return loadClusterList(args, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, notVersion, true, refresh...)
 }
 
-func loadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version string, allClusters bool, refresh ...bool) ([]data.ClusterInfo, error) {
+func matchesVersion(clusterVersion, version, notVersion string) bool {
+	return (version == "" || clusterVersion == version) && (notVersion == "" || clusterVersion != notVersion)
+}
+
+func loadClusterList(args []string, profile, profile_contains, profile_not_contains, name_contains, name_not_contains, region, version, notVersion string, allClusters bool, refresh ...bool) ([]data.ClusterInfo, error) {
 	clusterList := []data.ClusterInfo{}
 
 	doRefresh := len(refresh) > 0 && refresh[0]
 
 	// if filters are empty, use current cluster
-	if !allClusters && profile == "" && profile_contains == "" && profile_not_contains == "" && name_contains == "" && name_not_contains == "" && region == "" && version == "" {
+	if !allClusters && profile == "" && profile_contains == "" && profile_not_contains == "" && name_contains == "" && name_not_contains == "" && region == "" && version == "" && notVersion == "" {
 		clusterArn := ""
 
 		// Load Kubernetes configuration
@@ -118,7 +122,7 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 						fmt.Fprintf(os.Stderr, "Unable to load clusters using profile: %s region: %s (LoadClusterList)\n", profileDetails.Name, hintRegion)
 					}
 				} else {
-					if version == "" && name_contains == "" && name_not_contains == "" {
+					if version == "" && notVersion == "" && name_contains == "" && name_not_contains == "" {
 						clusterList = append(clusterList, currentClusterList...)
 					} else {
 						for _, cluster := range currentClusterList {
@@ -126,7 +130,7 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 							shouldAdd := true
 
 							// Check version filter
-							if version != "" && cluster.Version != version {
+							if !matchesVersion(cluster.Version, version, notVersion) {
 								shouldAdd = false
 							}
 

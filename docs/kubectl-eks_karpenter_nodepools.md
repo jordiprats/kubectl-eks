@@ -32,6 +32,7 @@ kubectl-eks karpenter nodepools [flags]
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for nodepools
+  -V, --not-version string            Exclude clusters with this EKS version
   -o, --output string                 Output format: wide
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring

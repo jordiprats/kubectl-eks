@@ -43,6 +43,7 @@ Without filters, queries the current cluster context.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 
 		if watchInterval > 0 && !printutils.IsTTY() {
 			log.Fatal("--watch requires an interactive terminal")
@@ -67,7 +68,7 @@ Without filters, queries the current cluster context.`,
 			}
 
 			var err error
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -164,6 +165,7 @@ func init() {
 	stacksCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	stacksCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	stacksCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	stacksCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	stacksCmd.Flags().DurationP("watch", "w", 0, "Watch mode: refresh every interval (default 30s, e.g. -w 5s)")
 	stacksCmd.Flags().Lookup("watch").NoOptDefVal = "30s"
 

@@ -109,6 +109,7 @@ Without filters, queries the current cluster context.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 
 		if watchInterval > 0 && !printutils.IsTTY() {
 			log.Fatal("--watch requires an interactive terminal")
@@ -136,9 +137,9 @@ Without filters, queries the current cluster context.`,
 
 			var err error
 			if nodeCount {
-				clusterList, err = LoadAllClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+				clusterList, err = LoadAllClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 			} else {
-				clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+				clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 			}
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
@@ -309,6 +310,7 @@ func init() {
 	nodesCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	nodesCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	nodesCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	nodesCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	nodesCmd.Flags().StringP("output", "o", "", "Output format (supported: wide)")
 	nodesCmd.Flags().BoolP("node-count", "C", false, "Show cluster node counts instead of individual nodes (not with --output wide)")
 	nodesCmd.Flags().StringP("managed-by", "m", "", "Filter nodes by managed-by substring (e.g. karpenter, nodegroup, fargate)")

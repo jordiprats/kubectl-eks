@@ -37,6 +37,7 @@ kubectl-eks mhelm [release-name] [flags]
   -h, --help                          help for mhelm
   -n, --namespace string              Kubernetes namespace
       --no-headers                    Don't print headers
+  -V, --not-version string            Exclude clusters with this EKS version
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring

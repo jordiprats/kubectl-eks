@@ -44,6 +44,7 @@ kubectl-eks kube2iam [flags]
   -h, --help                          help for kube2iam
   -n, --namespace string              Namespace to show kube2iam for
       --no-headers                    Don't print headers
+  -V, --not-version string            Exclude clusters with this EKS version
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring

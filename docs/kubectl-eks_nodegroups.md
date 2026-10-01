@@ -58,6 +58,7 @@ kubectl-eks nodegroups [flags]
   -m, --ng-contains strings           Filter by nodegroup name substring (repeatable)
       --ng-not strings                Exclude by exact nodegroup name (repeatable)
   -M, --ng-not-contains strings       Exclude nodegroups whose name contains substring (repeatable)
+  -V, --not-version string            Exclude clusters with this EKS version
   -o, --output string                 Output format: wide
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring

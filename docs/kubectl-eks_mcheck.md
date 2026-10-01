@@ -54,6 +54,7 @@ kubectl-eks mcheck [flags]
   -n, --namespace string              Kubernetes namespace (default: all namespaces)
       --no-headers                    Don't print headers
       --nodes                         Check only nodes
+  -V, --not-version string            Exclude clusters with this EKS version
       --pods                          Check only pods
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring

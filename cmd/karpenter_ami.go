@@ -31,6 +31,7 @@ inventory and tracking purposes.`,
 		nameNotContains, _ := cmd.Flags().GetString("cluster-not-contains")
 		region, _ := cmd.Flags().GetString("region")
 		version, _ := cmd.Flags().GetString("version")
+		notVersion, _ := cmd.Flags().GetString("not-version")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
 		nodepoolContains, _ := cmd.Flags().GetString("nodepool-contains")
 
@@ -48,7 +49,7 @@ inventory and tracking purposes.`,
 					ClusterList:  make(map[string]map[string][]data.ClusterInfo),
 				}
 			}
-			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, refresh)
+			clusterList, err = LoadClusterList([]string{}, profile, profileContains, profileNotContains, nameContains, nameNotContains, region, version, notVersion, refresh)
 			if err != nil {
 				log.Fatalf("Error loading cluster list: %v", err)
 			}
@@ -107,6 +108,7 @@ func init() {
 	karpenterAMICmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	karpenterAMICmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	karpenterAMICmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	karpenterAMICmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	karpenterAMICmd.Flags().StringP("nodepool-contains", "m", "", "Filter by NodePool name substring")
 
 	karpenterCmd.AddCommand(karpenterAMICmd)

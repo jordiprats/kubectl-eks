@@ -35,6 +35,9 @@ You can filter by cluster name, region, version, or AWS profile.`,
   # Filter by EKS version
   kubectl eks list --version 1.29
 
+	# Exclude an EKS version
+	kubectl eks list --not-version 1.29
+
   # Filter by exact AWS profile name
   kubectl eks list --profile my-profile
 
@@ -108,6 +111,10 @@ You can filter by cluster name, region, version, or AWS profile.`,
 		version, err := cmd.Flags().GetString("version")
 		if err != nil {
 			version = ""
+		}
+		notVersion, err := cmd.Flags().GetString("not-version")
+		if err != nil {
+			notVersion = ""
 		}
 
 		arnOnly, err := cmd.Flags().GetBool("arn-only")
@@ -183,7 +190,7 @@ You can filter by cluster name, region, version, or AWS profile.`,
 				if !exists {
 					fmt.Fprintf(os.Stderr, "Unable to load clusters using profile: %s region: %s (listCmd)\n", profileDetails.Name, hintRegion)
 				} else {
-					if version == "" && name_contains == "" && name_not_contains == "" {
+					if version == "" && notVersion == "" && name_contains == "" && name_not_contains == "" {
 						clusterList = append(clusterList, currentClusterList...)
 					} else {
 						for _, cluster := range currentClusterList {
@@ -191,7 +198,7 @@ You can filter by cluster name, region, version, or AWS profile.`,
 							shouldAdd := true
 
 							// Check version filter
-							if version != "" && cluster.Version != version {
+							if !matchesVersion(cluster.Version, version, notVersion) {
 								shouldAdd = false
 							}
 
@@ -333,6 +340,7 @@ func init() {
 	listCmd.Flags().StringP("cluster-not-contains", "x", "", "Exclude clusters whose name contains this substring")
 	listCmd.Flags().StringP("region", "r", "", "Filter by AWS region")
 	listCmd.Flags().StringP("version", "v", "", "Filter by EKS version")
+	listCmd.Flags().StringP("not-version", "V", "", "Exclude clusters with this EKS version")
 	listCmd.Flags().BoolP("arn-only", "1", false, "Output only cluster ARNs, one per line")
 	listCmd.Flags().BoolP("name-only", "2", false, "Output only cluster names, one per line")
 	listCmd.Flags().StringP("output", "o", "", "Output format (supported: wide)")
