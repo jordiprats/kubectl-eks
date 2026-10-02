@@ -24,6 +24,12 @@ kubectl-eks mhelm [release-name] [flags]
   # List releases in all namespaces
   kubectl eks mhelm -A
 
+	# Filter by chart and app version substrings
+	kubectl eks mhelm -A --chart-version 1.12 --app-version 2.4
+
+	# Exclude chart or app version substrings
+	kubectl eks mhelm -A --not-chart-version beta --not-app-version 1.
+
   # Find a release by exact name across production clusters
   kubectl eks mhelm ingress-nginx -A --cluster-contains prod
 ```
@@ -32,11 +38,15 @@ kubectl-eks mhelm [release-name] [flags]
 
 ```
   -A, --all-namespaces                Query all Kubernetes namespaces
+      --app-version string            Filter by Helm app version substring
+      --chart-version string          Filter by Helm chart version substring
   -c, --cluster-contains string       Filter by cluster name substring
   -x, --cluster-not-contains string   Exclude clusters whose name contains this substring
   -h, --help                          help for mhelm
   -n, --namespace string              Kubernetes namespace
       --no-headers                    Don't print headers
+      --not-app-version string        Exclude Helm app version substring
+      --not-chart-version string      Exclude Helm chart version substring
   -V, --not-version string            Exclude clusters with this EKS version
   -p, --profile string                Filter by exact AWS profile name (account)
   -q, --profile-contains string       Filter by AWS profile name (account) substring

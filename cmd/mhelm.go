@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
@@ -30,6 +31,12 @@ specific namespace or -A to query all namespaces.`,
   # List releases in all namespaces
   kubectl eks mhelm -A
 
+  # Filter by chart and app version substrings
+  kubectl eks mhelm -A --chart-version 1.12 --app-version 2.4
+
+  # Exclude chart or app version substrings
+  kubectl eks mhelm -A --not-chart-version beta --not-app-version 1.
+
   # Find a release by exact name across production clusters
   kubectl eks mhelm ingress-nginx -A --cluster-contains prod`,
 	Args: cobra.MaximumNArgs(1),
@@ -46,6 +53,10 @@ specific namespace or -A to query all namespaces.`,
 		namespace, _ := cmd.Flags().GetString("namespace")
 		allNamespaces, _ := cmd.Flags().GetBool("all-namespaces")
 		noHeaders, _ := cmd.Flags().GetBool("no-headers")
+		chartVersion, _ := cmd.Flags().GetString("chart-version")
+		notChartVersion, _ := cmd.Flags().GetString("not-chart-version")
+		appVersion, _ := cmd.Flags().GetString("app-version")
+		notAppVersion, _ := cmd.Flags().GetString("not-app-version")
 
 		namespace = helmNamespace(namespace, allNamespaces)
 
@@ -59,7 +70,7 @@ specific namespace or -A to query all namespaces.`,
 			log.Fatalf("Error loading cluster list: %v", err)
 		}
 
-		results := runHelmListing(context.Background(), clusterList, namespace, releaseName)
+		results := runHelmListing(context.Background(), clusterList, namespace, releaseName, chartVersion, notChartVersion, appVersion, notAppVersion)
 		printutils.PrintHelmReleases(noHeaders, results)
 		saveCacheToDisk()
 	},
@@ -75,7 +86,20 @@ func helmNamespace(namespace string, allNamespaces bool) string {
 	return namespace
 }
 
-func runHelmListing(ctx context.Context, clusterList []data.ClusterInfo, namespace, releaseName string) []data.HelmReleaseResult {
+func matchesHelmVersions(helmRelease *release.Release, chartVersion, notChartVersion, appVersion, notAppVersion string) bool {
+	var releaseChartVersion, releaseAppVersion string
+	if helmRelease != nil && helmRelease.Chart != nil && helmRelease.Chart.Metadata != nil {
+		releaseChartVersion = helmRelease.Chart.Metadata.Version
+		releaseAppVersion = helmRelease.Chart.Metadata.AppVersion
+	}
+
+	return (chartVersion == "" || strings.Contains(releaseChartVersion, chartVersion)) &&
+		(notChartVersion == "" || !strings.Contains(releaseChartVersion, notChartVersion)) &&
+		(appVersion == "" || strings.Contains(releaseAppVersion, appVersion)) &&
+		(notAppVersion == "" || !strings.Contains(releaseAppVersion, notAppVersion))
+}
+
+func runHelmListing(ctx context.Context, clusterList []data.ClusterInfo, namespace, releaseName, chartVersion, notChartVersion, appVersion, notAppVersion string) []data.HelmReleaseResult {
 	results := []data.HelmReleaseResult{}
 
 	for _, clusterInfo := range clusterList {
@@ -113,6 +137,9 @@ func runHelmListing(ctx context.Context, clusterList []data.ClusterInfo, namespa
 
 		for _, helmRelease := range latestHelmReleases(releases) {
 			if releaseName != "" && helmRelease.Name != releaseName {
+				continue
+			}
+			if !matchesHelmVersions(helmRelease, chartVersion, notChartVersion, appVersion, notAppVersion) {
 				continue
 			}
 			results = append(results, helmReleaseResult(clusterInfo, helmRelease))
@@ -195,6 +222,10 @@ func init() {
 	mHelmCmd.Flags().StringP("namespace", "n", "", "Kubernetes namespace")
 	mHelmCmd.Flags().BoolP("all-namespaces", "A", false, "Query all Kubernetes namespaces")
 	mHelmCmd.Flags().Bool("no-headers", false, "Don't print headers")
+	mHelmCmd.Flags().String("chart-version", "", "Filter by Helm chart version substring")
+	mHelmCmd.Flags().String("not-chart-version", "", "Exclude Helm chart version substring")
+	mHelmCmd.Flags().String("app-version", "", "Filter by Helm app version substring")
+	mHelmCmd.Flags().String("not-app-version", "", "Exclude Helm app version substring")
 
 	rootCmd.AddCommand(mHelmCmd)
 }

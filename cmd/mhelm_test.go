@@ -16,6 +16,41 @@ func TestHelmNamespace(t *testing.T) {
 	assert.Equal(t, "", helmNamespace("kube-system", true))
 }
 
+func TestMatchesHelmVersions(t *testing.T) {
+	helmRelease := &release.Release{Chart: &chart.Chart{Metadata: &chart.Metadata{
+		Version:    "1.12.3",
+		AppVersion: "2.4.1",
+	}}}
+
+	tests := []struct {
+		name            string
+		release         *release.Release
+		chartVersion    string
+		notChartVersion string
+		appVersion      string
+		notAppVersion   string
+		want            bool
+	}{
+		{name: "no filters", release: helmRelease, want: true},
+		{name: "chart substring", release: helmRelease, chartVersion: "1.12", want: true},
+		{name: "chart mismatch", release: helmRelease, chartVersion: "1.13", want: false},
+		{name: "excluded chart substring", release: helmRelease, notChartVersion: "1.12", want: false},
+		{name: "app substring", release: helmRelease, appVersion: "2.4", want: true},
+		{name: "excluded app substring", release: helmRelease, notAppVersion: "2.4", want: false},
+		{name: "combined filters", release: helmRelease, chartVersion: "1.", appVersion: "2.", want: true},
+		{name: "missing metadata with positive filter", release: &release.Release{}, chartVersion: "1", want: false},
+		{name: "missing metadata with exclusion", release: &release.Release{}, notChartVersion: "1", want: true},
+		{name: "nil release", chartVersion: "1", want: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := matchesHelmVersions(test.release, test.chartVersion, test.notChartVersion, test.appVersion, test.notAppVersion)
+			assert.Equal(t, test.want, actual)
+		})
+	}
+}
+
 func TestLatestHelmReleases(t *testing.T) {
 	releases := []*release.Release{
 		{Name: "api", Namespace: "apps", Version: 1},

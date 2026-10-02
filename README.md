@@ -182,6 +182,9 @@ kubectl eks mget pods --filter status.phase=Running
 # List Helm releases in all namespaces across clusters
 kubectl eks mhelm -A
 
+# Filter Helm releases by chart/app version substrings
+kubectl eks mhelm -A --chart-version 1.12 --not-app-version beta
+
 # View cluster statistics
 kubectl eks stats
 
