@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
-	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
@@ -423,7 +422,7 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 		clusterInfo.AWSProfile = profile
 	}
 
-	err := eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+	err := updateKubeConfigForCluster(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "", clusterInfo.AWSAccountID)
 	if err != nil {
 		fmt.Printf("Failed to update kubeconfig: %s\n", err.Error())
 		os.Exit(1)
@@ -492,7 +491,7 @@ func switchClusterWithInfo(clusterInfo *data.ClusterInfo, namespace, profile str
 		effectiveProfile = profile
 	}
 
-	err := eks.UpdateKubeConfig(effectiveProfile, clusterInfo.Region, clusterInfo.ClusterName, "")
+	err := updateKubeConfigForCluster(effectiveProfile, clusterInfo.Region, clusterInfo.ClusterName, "", clusterInfo.AWSAccountID)
 	if err != nil {
 		fmt.Printf("Failed to update kubeconfig: %s\n", err.Error())
 		os.Exit(1)

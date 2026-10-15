@@ -9,6 +9,7 @@ import (
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/eks"
+	"github.com/jordiprats/kubectl-eks/pkg/sts"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -159,6 +160,34 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 	return clusterList, nil
 }
 
+var (
+	lookupCachedAccountID   = sts.TryGetAccountID
+	runUpdateKubeConfig     = eks.UpdateKubeConfig
+	runUpdateKubeConfigOkta = eks.UpdateKubeConfigWithEnhancedCredentials
+)
+
+func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfig, targetAccountID string) error {
+	kubeconfigProfile := awsconfig.GetEffectiveKubeconfigProfile(discoveryProfile)
+	if kubeconfigProfile != "" {
+		credentialProcess, factor, app := awsconfig.GetOktaEnhancements(kubeconfigProfile)
+		if credentialProcess != "" && (factor != "" || app != "") {
+			noAWSCache := false
+			if targetAccountID != "" {
+				cachedAccount, err := lookupCachedAccountID(kubeconfigProfile, region)
+				if err == nil && cachedAccount != targetAccountID {
+					noAWSCache = true
+				}
+			}
+			return runUpdateKubeConfigOkta(
+				kubeconfigProfile, credentialProcess, factor, app,
+				region, clusterName, kubeConfig, noAWSCache,
+			)
+		}
+		return runUpdateKubeConfig(kubeconfigProfile, region, clusterName, kubeConfig)
+	}
+	return runUpdateKubeConfig(discoveryProfile, region, clusterName, kubeConfig)
+}
+
 // GetRestConfigForCluster creates a temporary kubeconfig for the given cluster
 // and returns a rest.Config without modifying the user's actual kubeconfig.
 func GetRestConfigForCluster(clusterInfo data.ClusterInfo) (*rest.Config, error) {
@@ -170,7 +199,7 @@ func GetRestConfigForCluster(clusterInfo data.ClusterInfo) (*rest.Config, error)
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 
-	err = eks.UpdateKubeConfig(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, tmpPath)
+	err = updateKubeConfigForCluster(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, tmpPath, clusterInfo.AWSAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update temp kubeconfig for cluster %s: %v", clusterInfo.ClusterName, err)
 	}

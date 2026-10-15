@@ -475,7 +475,7 @@ func handleUseCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 			resolved.AWSProfile = profile
 		}
 
-		err = eks.UpdateKubeConfig(resolved.AWSProfile, resolved.Region, resolved.ClusterName, "")
+		err = updateKubeConfigForCluster(resolved.AWSProfile, resolved.Region, resolved.ClusterName, "", resolved.AWSAccountID)
 		if err != nil {
 			errMsg = fmt.Sprintf("Failed to update kubeconfig: %v", err)
 			return

@@ -2,6 +2,7 @@ package sts
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -28,6 +29,27 @@ func GetAccountID(profile, region string) (string, error) {
 	result, err := stsSvc.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		log.Fatalf("Failed to get caller identity: %v", err)
+	}
+
+	return aws.ToString(result.Account), nil
+}
+
+func TryGetAccountID(profile, region string) (string, error) {
+	ctx := context.Background()
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithSharedConfigProfile(profile),
+		config.WithRegion(region),
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
+	stsSvc := sts.NewFromConfig(cfg)
+
+	result, err := stsSvc.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get caller identity: %w", err)
 	}
 
 	return aws.ToString(result.Account), nil
