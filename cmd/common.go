@@ -171,7 +171,7 @@ var (
 func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfig, targetAccountID string) error {
 	kubeconfigProfile := awsconfig.GetEffectiveKubeconfigProfile(discoveryProfile)
 	if kubeconfigProfile != "" {
-		credentialProcess, factor, app := awsconfig.GetOktaEnhancements(kubeconfigProfile)
+		credentialProcess, factor, app := awsconfig.GetOktaEnhancements(discoveryProfile, kubeconfigProfile)
 		if credentialProcess != "" && (factor != "" || app != "") {
 			opts := eks.EnhancedOptions{
 				CredentialProcess: credentialProcess,
@@ -192,7 +192,7 @@ func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfi
 			}
 
 			if needsLogin && targetAccountID != "" {
-				choice, err := resolveOktaRole(credentialProcess, factor, app, targetAccountID, awsconfig.GetRolePreference(kubeconfigProfile))
+				choice, err := resolveOktaRole(credentialProcess, factor, app, targetAccountID, awsconfig.GetRolePreference(discoveryProfile, kubeconfigProfile))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "warning: could not pre-select the Okta role (%v); falling back to interactive selection\n", err)
 				} else {

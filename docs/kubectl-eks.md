@@ -47,6 +47,7 @@ kubectl-eks [flags]
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
   -n, --namespace string               If present, the namespace scope for this CLI request
       --no-headers                     When using the default or custom-column output format, don't print headers (default print headers)
+  -o, --output string                  Output format. Supported: wide (adds the IAM role in use)
       --proxy-url string               Proxy URL to use for requests to the API server
   -u, --refresh                        Do not use cached data, refresh from AWS
   -r, --region string                  Switch to the same cluster in a different region

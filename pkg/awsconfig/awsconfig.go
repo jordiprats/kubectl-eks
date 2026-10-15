@@ -180,37 +180,42 @@ func GetEffectiveKubeconfigProfile(discoveryProfile string) string {
 	return ConfigData.KubeconfigProfile
 }
 
-func GetOktaEnhancements(profileName string) (credentialProcess, factor, app string) {
+func GetOktaEnhancements(discoveryProfile, kubeconfigProfile string) (credentialProcess, factor, app string) {
 	if ConfigData == nil {
 		loadAWSConfig()
 	}
 
-	p, ok := ConfigData.Profiles[profileName]
+	kp, ok := ConfigData.Profiles[kubeconfigProfile]
 	if !ok {
 		return "", "", ""
 	}
-	credentialProcess = p.CredentialProcess
+	dp := ConfigData.Profiles[discoveryProfile]
 
-	factor = p.OktaFactor
-	if factor == "" {
-		factor = ConfigData.OktaFactor
-	}
+	factor = firstNonEmpty(dp.OktaFactor, kp.OktaFactor, ConfigData.OktaFactor)
+	app = firstNonEmpty(dp.AWSApp, kp.AWSApp, ConfigData.AWSApp)
 
-	app = p.AWSApp
-	if app == "" {
-		app = ConfigData.AWSApp
-	}
-
-	return credentialProcess, factor, app
+	return kp.CredentialProcess, factor, app
 }
 
-func GetRolePreference(profileName string) []string {
+func GetRolePreference(discoveryProfile, kubeconfigProfile string) []string {
 	if ConfigData == nil {
 		loadAWSConfig()
 	}
 
-	if p, ok := ConfigData.Profiles[profileName]; ok && len(p.RolePreference) > 0 {
+	if p := ConfigData.Profiles[discoveryProfile]; len(p.RolePreference) > 0 {
+		return p.RolePreference
+	}
+	if p := ConfigData.Profiles[kubeconfigProfile]; len(p.RolePreference) > 0 {
 		return p.RolePreference
 	}
 	return ConfigData.RolePreference
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

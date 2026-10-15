@@ -324,3 +324,24 @@ func TestUpdateKubeConfigForCluster_UnknownTargetAccountSkipsRoleLookup(t *testi
 		t.Errorf("no role lookup expected without a target account, got %d", calls.roleLookups)
 	}
 }
+
+func TestUpdateKubeConfigForCluster_DiscoveryProfileAppOverridesGlobal(t *testing.T) {
+	cfg := oktaConfig()
+	cfg.AWSApp = "https://example.okta.com/global-app"
+	cfg.Profiles["pci"] = data.AWSProfile{Name: "pci", AWSApp: "https://example.okta.com/pci-app"}
+	calls := setupKubeconfigFakes(t, cfg, "111111111111", nil)
+
+	if err := updateKubeConfigForCluster("pci", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.opts.Application != "https://example.okta.com/pci-app" {
+		t.Errorf("discovery profile app should win, got %q", calls.opts.Application)
+	}
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.opts.Application != "https://example.okta.com/global-app" {
+		t.Errorf("profiles without their own app should use the global one, got %q", calls.opts.Application)
+	}
+}

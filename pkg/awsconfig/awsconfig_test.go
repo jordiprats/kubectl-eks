@@ -147,7 +147,7 @@ credential_process=aws-okta-processor authenticate --user other
 `
 	ConfigData = loadAWSConfigFromReader(strings.NewReader(config))
 
-	cp, factor, app := GetOktaEnhancements("okta-custom")
+	cp, factor, app := GetOktaEnhancements("", "okta-custom")
 	if cp != "aws-okta-processor authenticate --user alice" {
 		t.Errorf("unexpected credential_process: %q", cp)
 	}
@@ -158,7 +158,7 @@ credential_process=aws-okta-processor authenticate --user other
 		t.Errorf("expected global fallback app 'global-app', got %q", app)
 	}
 
-	cp, factor, app = GetOktaEnhancements("okta-default")
+	cp, factor, app = GetOktaEnhancements("", "okta-default")
 	if cp != "aws-okta-processor authenticate --user other" {
 		t.Errorf("unexpected credential_process: %q", cp)
 	}
@@ -169,7 +169,7 @@ credential_process=aws-okta-processor authenticate --user other
 		t.Errorf("expected global app 'global-app', got %q", app)
 	}
 
-	cp, factor, app = GetOktaEnhancements("nonexistent")
+	cp, factor, app = GetOktaEnhancements("", "nonexistent")
 	if cp != "" || factor != "" || app != "" {
 		t.Errorf("expected empty results for nonexistent profile, got cp=%q factor=%q app=%q", cp, factor, app)
 	}
@@ -184,17 +184,57 @@ func TestGetRolePreference(t *testing.T) {
 
 [profile default-pref]
 region = us-east-1
+
+[profile okta]
+# kubectl-eks-role-preference=Ops
 `
 	ConfigData = loadAWSConfigFromReader(strings.NewReader(config))
 
-	if got := GetRolePreference("custom"); len(got) != 1 || got[0] != "ReadOnly" {
-		t.Errorf("expected per-profile [ReadOnly], got %v", got)
+	if got := GetRolePreference("custom", "okta"); len(got) != 1 || got[0] != "ReadOnly" {
+		t.Errorf("discovery profile should win, got %v", got)
+	}
+	if got := GetRolePreference("default-pref", "okta"); len(got) != 1 || got[0] != "Ops" {
+		t.Errorf("kubeconfig profile should be next, got %v", got)
 	}
 	want := []string{"PowerUser", "Ops", "ReadOnly"}
-	for _, name := range []string{"default-pref", "nonexistent"} {
-		got := GetRolePreference(name)
+	for _, pair := range [][2]string{{"default-pref", "nonexistent"}, {"nonexistent", "nonexistent"}} {
+		got := GetRolePreference(pair[0], pair[1])
 		if len(got) != 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-			t.Errorf("%s: expected global %v, got %v", name, want, got)
+			t.Errorf("%v: expected global %v, got %v", pair, want, got)
 		}
+	}
+}
+
+func TestGetOktaEnhancements_DiscoveryProfileOverrides(t *testing.T) {
+	config := `
+# kubectl-eks-okta-factor=global-factor
+# kubectl-eks-okta-app-url=global-app
+
+[profile okta]
+credential_process=aws-okta-processor authenticate --user alice
+# kubectl-eks-okta-factor=okta-factor
+
+[profile pci]
+# kubectl-eks-okta-app-url=pci-app
+
+[profile plain]
+region = us-east-1
+`
+	ConfigData = loadAWSConfigFromReader(strings.NewReader(config))
+
+	cp, factor, app := GetOktaEnhancements("pci", "okta")
+	if cp != "aws-okta-processor authenticate --user alice" {
+		t.Errorf("credential_process must come from the kubeconfig profile, got %q", cp)
+	}
+	if app != "pci-app" {
+		t.Errorf("discovery profile app should win, got %q", app)
+	}
+	if factor != "okta-factor" {
+		t.Errorf("kubeconfig profile factor should beat global, got %q", factor)
+	}
+
+	_, factor, app = GetOktaEnhancements("plain", "okta")
+	if factor != "okta-factor" || app != "global-app" {
+		t.Errorf("expected okta-factor/global-app, got %q/%q", factor, app)
 	}
 }
