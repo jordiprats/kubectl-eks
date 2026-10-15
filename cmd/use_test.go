@@ -221,3 +221,5 @@ func TestChooseRegionSwitchCluster_TooManyRegions(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "more than two regions")
 }
+
+
