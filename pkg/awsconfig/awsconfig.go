@@ -130,6 +130,14 @@ func loadAWSConfigFromReader(reader io.Reader) *data.AWSConfig {
 			currentProfileDetails := awsConfig.Profiles[currentProfile]
 			currentProfileDetails.CredentialProcess = value
 			awsConfig.Profiles[currentProfile] = currentProfileDetails
+		case "role_arn":
+			currentProfileDetails := awsConfig.Profiles[currentProfile]
+			currentProfileDetails.RoleARN = value
+			awsConfig.Profiles[currentProfile] = currentProfileDetails
+		case "sso_role_name":
+			currentProfileDetails := awsConfig.Profiles[currentProfile]
+			currentProfileDetails.SSORoleName = value
+			awsConfig.Profiles[currentProfile] = currentProfileDetails
 		}
 	}
 
@@ -209,6 +217,31 @@ func GetRolePreference(discoveryProfile, kubeconfigProfile string) []string {
 		return p.RolePreference
 	}
 	return ConfigData.RolePreference
+}
+
+// GetProfileRoleName returns a short role name for the given AWS profile,
+// extracted from ~/.aws/config without any AWS API calls.
+// It uses role_arn (taking the name after ":role/") or sso_role_name.
+// Returns "" if the profile has neither.
+func GetProfileRoleName(profile string) string {
+	if profile == "" {
+		return ""
+	}
+	if ConfigData == nil {
+		loadAWSConfig()
+	}
+	p, ok := ConfigData.Profiles[profile]
+	if !ok {
+		return ""
+	}
+	if p.RoleARN != "" {
+		// arn:aws:iam::123456789012:role/path/RoleName -> path/RoleName
+		if idx := strings.Index(p.RoleARN, ":role/"); idx >= 0 {
+			return p.RoleARN[idx+len(":role/"):]
+		}
+		return p.RoleARN
+	}
+	return p.SSORoleName
 }
 
 func firstNonEmpty(values ...string) string {

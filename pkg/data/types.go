@@ -108,6 +108,8 @@ type AWSProfile struct {
 	OktaFactor        string
 	AWSApp            string
 	RolePreference    []string
+	RoleARN           string // role_arn value from ~/.aws/config
+	SSORoleName       string // sso_role_name value from ~/.aws/config
 }
 
 type AWSConfig struct {

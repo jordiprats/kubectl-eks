@@ -487,11 +487,9 @@ func handleUseCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 				errMsg = fmt.Sprintf("Switched cluster but failed to set namespace: %v", err)
 				return
 			}
-			resultMsg = fmt.Sprintf("Switched to EKS cluster %q (namespace: %q) in region %q using profile %q",
-				resolved.ClusterName, namespace, resolved.Region, resolved.AWSProfile)
+			resultMsg = switchMessage(resolved.ClusterName, namespace, resolved.Region, resolved.AWSProfile, "")
 		} else {
-			resultMsg = fmt.Sprintf("Switched to EKS cluster %q in region %q using profile %q",
-				resolved.ClusterName, resolved.Region, resolved.AWSProfile)
+			resultMsg = switchMessage(resolved.ClusterName, "", resolved.Region, resolved.AWSProfile, "")
 		}
 	})
 
