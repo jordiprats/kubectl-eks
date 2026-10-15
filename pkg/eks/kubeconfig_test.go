@@ -13,23 +13,24 @@ func TestBuildEnhancedCredentialProcess(t *testing.T) {
 	base := "aws-okta-processor authenticate --user alice"
 
 	tests := []struct {
-		name       string
-		factor     string
-		app        string
-		noAWSCache bool
-		want       string
+		name string
+		opts EnhancedOptions
+		want string
 	}{
-		{"nothing", "", "", false, base},
-		{"factor only", "token:hardware:yubico", "", false, base + " --factor=token:hardware:yubico"},
-		{"app only", "", "https://x/y", false, base + " --application=https://x/y"},
-		{"factor and app", "f", "a", false, base + " --factor=f --application=a"},
-		{"no aws cache", "f", "a", true, base + " --factor=f --application=a --no-aws-cache"},
+		{"nothing", EnhancedOptions{}, ""},
+		{"factor only", EnhancedOptions{Factor: "token:hardware:yubico"}, " --factor=token:hardware:yubico"},
+		{"app only", EnhancedOptions{Application: "https://x/y"}, " --application=https://x/y"},
+		{"factor and app", EnhancedOptions{Factor: "f", Application: "a"}, " --factor=f --application=a"},
+		{"role", EnhancedOptions{Factor: "f", Application: "a", Role: "arn:aws:iam::1:role/R"}, " --factor=f --application=a --role=arn:aws:iam::1:role/R"},
+		{"account alias", EnhancedOptions{Factor: "f", AccountAlias: "team-a-*"}, " --factor=f --account-alias=team-a-*"},
+		{"everything", EnhancedOptions{Factor: "f", Application: "a", Role: "r", AccountAlias: "al", NoAWSCache: true}, " --factor=f --application=a --role=r --account-alias=al --no-aws-cache"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildEnhancedCredentialProcess(base, tt.factor, tt.app, tt.noAWSCache)
-			if got != tt.want {
-				t.Errorf("got %q, want %q", got, tt.want)
+			tt.opts.CredentialProcess = base
+			got := buildEnhancedCredentialProcess(tt.opts)
+			if got != base+tt.want {
+				t.Errorf("got %q, want %q", got, base+tt.want)
 			}
 		})
 	}
@@ -78,12 +79,18 @@ func TestUpdateKubeConfigWithEnhancedCredentials(t *testing.T) {
 		return nil
 	}
 
-	err := UpdateKubeConfigWithEnhancedCredentials("okta", "aws-okta-processor authenticate --user alice", "yubico", "https://app", "us-east-1", "c1", "", true)
+	err := UpdateKubeConfigWithEnhancedCredentials("okta", "us-east-1", "c1", "", EnhancedOptions{
+		CredentialProcess: "aws-okta-processor authenticate --user alice",
+		Factor:            "yubico",
+		Application:       "https://app",
+		Role:              "arn:aws:iam::1:role/R",
+		NoAWSCache:        true,
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	wantConfig := "[profile okta]\ncredential_process=aws-okta-processor authenticate --user alice --factor=yubico --application=https://app --no-aws-cache\n"
+	wantConfig := "[profile okta]\ncredential_process=aws-okta-processor authenticate --user alice --factor=yubico --application=https://app --role=arn:aws:iam::1:role/R --no-aws-cache\n"
 	if tmpConfigContent != wantConfig {
 		t.Errorf("temp config = %q, want %q", tmpConfigContent, wantConfig)
 	}
@@ -104,7 +111,7 @@ func TestUpdateKubeConfigWithEnhancedCredentials_PropagatesError(t *testing.T) {
 	wantErr := errors.New("boom")
 	runAWSCommand = func(cmd *exec.Cmd) error { return wantErr }
 
-	err := UpdateKubeConfigWithEnhancedCredentials("okta", "cmd", "f", "", "us-east-1", "c1", "/tmp/kc", false)
+	err := UpdateKubeConfigWithEnhancedCredentials("okta", "us-east-1", "c1", "/tmp/kc", EnhancedOptions{CredentialProcess: "cmd", Factor: "f"})
 	if !errors.Is(err, wantErr) {
 		t.Errorf("got %v, want %v", err, wantErr)
 	}

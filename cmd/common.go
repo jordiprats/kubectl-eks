@@ -9,6 +9,7 @@ import (
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/eks"
+	"github.com/jordiprats/kubectl-eks/pkg/okta"
 	"github.com/jordiprats/kubectl-eks/pkg/sts"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -162,6 +163,7 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 
 var (
 	lookupCachedAccountID   = sts.TryGetAccountID
+	resolveOktaRole         = okta.ResolveRole
 	runUpdateKubeConfig     = eks.UpdateKubeConfig
 	runUpdateKubeConfigOkta = eks.UpdateKubeConfigWithEnhancedCredentials
 )
@@ -171,17 +173,35 @@ func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfi
 	if kubeconfigProfile != "" {
 		credentialProcess, factor, app := awsconfig.GetOktaEnhancements(kubeconfigProfile)
 		if credentialProcess != "" && (factor != "" || app != "") {
-			noAWSCache := forceReauth
+			opts := eks.EnhancedOptions{
+				CredentialProcess: credentialProcess,
+				Factor:            factor,
+				Application:       app,
+				NoAWSCache:        forceReauth,
+			}
+
+			needsLogin := forceReauth
 			if !forceReauth && targetAccountID != "" {
 				cachedAccount, err := lookupCachedAccountID(kubeconfigProfile, region)
-				if err == nil && cachedAccount != targetAccountID {
-					noAWSCache = true
+				if err != nil {
+					needsLogin = true
+				} else if cachedAccount != targetAccountID {
+					needsLogin = true
+					opts.NoAWSCache = true
 				}
 			}
-			return runUpdateKubeConfigOkta(
-				kubeconfigProfile, credentialProcess, factor, app,
-				region, clusterName, kubeConfig, noAWSCache,
-			)
+
+			if needsLogin && targetAccountID != "" {
+				choice, err := resolveOktaRole(credentialProcess, factor, app, targetAccountID, awsconfig.GetRolePreference(kubeconfigProfile))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: could not pre-select the Okta role (%v); falling back to interactive selection\n", err)
+				} else {
+					opts.Role = choice.RoleARN
+					opts.AccountAlias = choice.AccountAlias
+				}
+			}
+
+			return runUpdateKubeConfigOkta(kubeconfigProfile, region, clusterName, kubeConfig, opts)
 		}
 		return runUpdateKubeConfig(kubeconfigProfile, region, clusterName, kubeConfig)
 	}

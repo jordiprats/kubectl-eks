@@ -203,3 +203,14 @@ func GetOktaEnhancements(profileName string) (credentialProcess, factor, app str
 
 	return credentialProcess, factor, app
 }
+
+func GetRolePreference(profileName string) []string {
+	if ConfigData == nil {
+		loadAWSConfig()
+	}
+
+	if p, ok := ConfigData.Profiles[profileName]; ok && len(p.RolePreference) > 0 {
+		return p.RolePreference
+	}
+	return ConfigData.RolePreference
+}

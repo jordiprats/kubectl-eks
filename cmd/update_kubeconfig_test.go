@@ -6,22 +6,28 @@ import (
 
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
+	"github.com/jordiprats/kubectl-eks/pkg/eks"
+	"github.com/jordiprats/kubectl-eks/pkg/okta"
 )
 
 type kubeconfigCalls struct {
-	plain      []string
-	okta       []string
-	noAWSCache bool
-	lookups    int
+	plain       []string
+	okta        []string
+	opts        eks.EnhancedOptions
+	noAWSCache  bool
+	lookups     int
+	roleLookups int
+	rolePref    []string
+	roleAccount string
 }
 
 func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount string, lookupErr error) *kubeconfigCalls {
 	t.Helper()
 	calls := &kubeconfigCalls{}
 
-	origCfg, origLookup, origPlain, origOkta := awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta
+	origCfg, origLookup, origPlain, origOkta, origRole := awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole
 	t.Cleanup(func() {
-		awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta = origCfg, origLookup, origPlain, origOkta
+		awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole = origCfg, origLookup, origPlain, origOkta, origRole
 	})
 
 	awsconfig.ConfigData = cfg
@@ -33,10 +39,17 @@ func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount strin
 		calls.plain = []string{profile, region, cluster, kubeConfig}
 		return nil
 	}
-	runUpdateKubeConfigOkta = func(profile, cp, factor, app, region, cluster, kubeConfig string, noAWSCache bool) error {
-		calls.okta = []string{profile, cp, factor, app, region, cluster, kubeConfig}
-		calls.noAWSCache = noAWSCache
+	runUpdateKubeConfigOkta = func(profile, region, cluster, kubeConfig string, opts eks.EnhancedOptions) error {
+		calls.okta = []string{profile, opts.CredentialProcess, opts.Factor, opts.Application, region, cluster, kubeConfig}
+		calls.opts = opts
+		calls.noAWSCache = opts.NoAWSCache
 		return nil
+	}
+	resolveOktaRole = func(cp, factor, app, accountID string, pref []string) (okta.Choice, error) {
+		calls.roleLookups++
+		calls.roleAccount = accountID
+		calls.rolePref = pref
+		return okta.Choice{RoleARN: "arn:aws:iam::" + accountID + ":role/Team-PowerUser"}, nil
 	}
 	return calls
 }
@@ -45,6 +58,7 @@ func oktaConfig() *data.AWSConfig {
 	return &data.AWSConfig{
 		KubeconfigProfile: "okta",
 		OktaFactor:        "yubico",
+		RolePreference:    []string{"PowerUser", "Ops"},
 		Profiles: map[string]data.AWSProfile{
 			"":    {},
 			"dev": {Name: "dev"},
@@ -171,7 +185,7 @@ func TestUpdateKubeConfigForCluster_UnknownTargetAccountSkipsLookup(t *testing.T
 func TestUpdateKubeConfigForCluster_PropagatesError(t *testing.T) {
 	setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
 	wantErr := errors.New("boom")
-	runUpdateKubeConfigOkta = func(string, string, string, string, string, string, string, bool) error { return wantErr }
+	runUpdateKubeConfigOkta = func(string, string, string, string, eks.EnhancedOptions) error { return wantErr }
 
 	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); !errors.Is(err, wantErr) {
 		t.Errorf("got %v, want %v", err, wantErr)
@@ -206,5 +220,107 @@ func TestUseCmdHasReauthFlag(t *testing.T) {
 	}
 	if f.DefValue != "false" {
 		t.Errorf("--reauth default = %q, want false", f.DefValue)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_DifferentAccountPreselectsRole(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "222222222222", nil)
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.roleLookups != 1 || calls.roleAccount != "111111111111" {
+		t.Fatalf("expected one role lookup for the target account, got %d (%q)", calls.roleLookups, calls.roleAccount)
+	}
+	if len(calls.rolePref) != 2 || calls.rolePref[0] != "PowerUser" {
+		t.Errorf("role preference not passed through: %v", calls.rolePref)
+	}
+	if calls.opts.Role != "arn:aws:iam::111111111111:role/Team-PowerUser" {
+		t.Errorf("role not set on options: %+v", calls.opts)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_SameAccountSkipsRoleLookup(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.roleLookups != 0 {
+		t.Errorf("cached creds are valid, no role lookup expected, got %d", calls.roleLookups)
+	}
+	if calls.opts.Role != "" || calls.opts.AccountAlias != "" {
+		t.Errorf("no role/alias expected, got %+v", calls.opts)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_ExpiredCredsPreselectRoleWithoutDisablingCache(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "", errors.New("expired"))
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.roleLookups != 1 || calls.opts.Role == "" {
+		t.Errorf("a login will happen, so the role should be pre-selected: %+v (lookups %d)", calls.opts, calls.roleLookups)
+	}
+	if calls.noAWSCache {
+		t.Error("STS failure must not force --no-aws-cache")
+	}
+}
+
+func TestUpdateKubeConfigForCluster_ForceReauthPreselectsRole(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
+
+	orig := forceReauth
+	forceReauth = true
+	t.Cleanup(func() { forceReauth = orig })
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.roleLookups != 1 || calls.opts.Role == "" {
+		t.Errorf("--reauth should pre-select the role: %+v", calls.opts)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_AccountAliasWhenNoPreferredRole(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "222222222222", nil)
+	resolveOktaRole = func(string, string, string, string, []string) (okta.Choice, error) {
+		return okta.Choice{AccountAlias: "team-a-dev"}, nil
+	}
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.opts.Role != "" || calls.opts.AccountAlias != "team-a-dev" {
+		t.Errorf("expected only the account alias filter, got %+v", calls.opts)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_RoleResolutionFailureFallsBackToPrompt(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "222222222222", nil)
+	resolveOktaRole = func(string, string, string, string, []string) (okta.Choice, error) {
+		return okta.Choice{}, errors.New("account not in app")
+	}
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatalf("role resolution failure must not fail the switch: %v", err)
+	}
+	if calls.okta == nil {
+		t.Fatal("enhanced update should still run")
+	}
+	if calls.opts.Role != "" || calls.opts.AccountAlias != "" {
+		t.Errorf("no role/alias expected on fallback, got %+v", calls.opts)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_UnknownTargetAccountSkipsRoleLookup(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "222222222222", nil)
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if calls.roleLookups != 0 {
+		t.Errorf("no role lookup expected without a target account, got %d", calls.roleLookups)
 	}
 }

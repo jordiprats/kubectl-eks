@@ -174,3 +174,27 @@ credential_process=aws-okta-processor authenticate --user other
 		t.Errorf("expected empty results for nonexistent profile, got cp=%q factor=%q app=%q", cp, factor, app)
 	}
 }
+
+func TestGetRolePreference(t *testing.T) {
+	config := `
+# kubectl-eks-role-preference=PowerUser, Ops ,ReadOnly
+
+[profile custom]
+# kubectl-eks-role-preference=ReadOnly
+
+[profile default-pref]
+region = us-east-1
+`
+	ConfigData = loadAWSConfigFromReader(strings.NewReader(config))
+
+	if got := GetRolePreference("custom"); len(got) != 1 || got[0] != "ReadOnly" {
+		t.Errorf("expected per-profile [ReadOnly], got %v", got)
+	}
+	want := []string{"PowerUser", "Ops", "ReadOnly"}
+	for _, name := range []string{"default-pref", "nonexistent"} {
+		got := GetRolePreference(name)
+		if len(got) != 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+			t.Errorf("%s: expected global %v, got %v", name, want, got)
+		}
+	}
+}

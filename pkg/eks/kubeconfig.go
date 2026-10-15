@@ -23,15 +23,30 @@ func UpdateKubeConfig(profile, region, clusterName, kubeConfig string) error {
 	return cmd.Run()
 }
 
-func buildEnhancedCredentialProcess(credentialProcess, factor, application string, noAWSCache bool) string {
-	enhanced := credentialProcess
-	if factor != "" {
-		enhanced += " --factor=" + factor
+type EnhancedOptions struct {
+	CredentialProcess string
+	Factor            string
+	Application       string
+	Role              string
+	AccountAlias      string
+	NoAWSCache        bool
+}
+
+func buildEnhancedCredentialProcess(o EnhancedOptions) string {
+	enhanced := o.CredentialProcess
+	if o.Factor != "" {
+		enhanced += " --factor=" + o.Factor
 	}
-	if application != "" {
-		enhanced += " --application=" + application
+	if o.Application != "" {
+		enhanced += " --application=" + o.Application
 	}
-	if noAWSCache {
+	if o.Role != "" {
+		enhanced += " --role=" + o.Role
+	}
+	if o.AccountAlias != "" {
+		enhanced += " --account-alias=" + o.AccountAlias
+	}
+	if o.NoAWSCache {
 		enhanced += " --no-aws-cache"
 	}
 	return enhanced
@@ -49,8 +64,8 @@ func buildUpdateKubeconfigArgs(profile, region, clusterName, kubeConfig string) 
 	return args
 }
 
-func UpdateKubeConfigWithEnhancedCredentials(kubeconfigProfile, credentialProcess, factor, application, region, clusterName, kubeConfig string, noAWSCache bool) error {
-	enhanced := buildEnhancedCredentialProcess(credentialProcess, factor, application, noAWSCache)
+func UpdateKubeConfigWithEnhancedCredentials(kubeconfigProfile, region, clusterName, kubeConfig string, opts EnhancedOptions) error {
+	enhanced := buildEnhancedCredentialProcess(opts)
 
 	tmpFile, err := os.CreateTemp("", "kubectl-eks-awsconfig-*.ini")
 	if err != nil {
