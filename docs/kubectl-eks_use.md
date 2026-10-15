@@ -38,6 +38,7 @@ kubectl-eks use [cluster-name-or-arn] [flags]
   -p, --profile string                Set specific AWS profile for the context
   -q, --profile-contains string       Filter by AWS profile name (account) substring
   -Q, --profile-not-contains string   Exclude profiles whose name contains this substring
+      --reauth                        Skip the existing kubeconfig context, rebuild it and force a fresh login when an Okta credential_process is configured
   -u, --refresh                       Refresh data from AWS
   -r, --region string                 Filter by AWS region
       --switch string                 Switch to the counterpart cluster by dimension: side or region

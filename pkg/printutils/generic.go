@@ -768,3 +768,30 @@ func PrintNodeGroup(noHeaders bool, wide bool, ngInfo ...eks.EKSNodeGroupInfo) {
 		os.Exit(1)
 	}
 }
+
+// PrintCurrentClusterWide prints the current cluster together with the IAM role in use.
+func PrintCurrentClusterWide(noHeaders bool, iamRole string, c data.ClusterInfo) {
+	printer := printers.NewTablePrinter(printers.PrintOptions{NoHeaders: noHeaders})
+
+	table := &v1.Table{
+		ColumnDefinitions: []v1.TableColumnDefinition{
+			{Name: "AWS PROFILE", Type: "string"},
+			{Name: "AWS REGION", Type: "string"},
+			{Name: "CLUSTER NAME", Type: "string"},
+			{Name: "NAMESPACE", Type: "string"},
+			{Name: "STATUS", Type: "string"},
+			{Name: "VERSION", Type: "string"},
+			{Name: "CREATED", Type: "string"},
+			{Name: "IAM ROLE", Type: "string"},
+			{Name: "ARN", Type: "string"},
+		},
+		Rows: []v1.TableRow{{Cells: []interface{}{
+			c.AWSProfile, c.Region, c.ClusterName, c.Namespace, c.Status, c.Version, c.CreatedAt, iamRole, c.Arn,
+		}}},
+	}
+
+	if err := printer.PrintObj(table, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "Error printing table: %v\n", err)
+		os.Exit(1)
+	}
+}

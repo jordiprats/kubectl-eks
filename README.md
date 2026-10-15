@@ -6,6 +6,9 @@ A kubectl plugin for **managing Amazon EKS clusters**. This plugin provides conv
 * [Prerequisites](#Prerequisites)
 * [Installation](#Installation)
 	* [Binary Installation](#BinaryInstallation)
+* [Configuration](#Configuration)
+	* [Cluster discovery](#ClusterDiscovery)
+	* [Okta authentication](#OktaAuthentication)
 * [Documentation](#Documentation)
 * [Quick Start](#QuickStart)
 
@@ -40,6 +43,81 @@ We provide pre-built binaries for Linux and macOS (arm64 and x86-64). Follow the
     ```bash
     kubectl eks --help
     ```
+
+## <a name='Configuration'></a>Configuration
+
+kubectl-eks is configured with hints written as comments in `~/.aws/config`. They are ordinary comments, so the AWS CLI and SDKs ignore them.
+
+- A hint placed **under a `[profile name]` header** applies to that profile.
+- A hint placed **before any `[profile ...]` header** is a global default.
+
+### <a name='ClusterDiscovery'></a>Cluster discovery
+
+| Hint | Description |
+|------|-------------|
+| `# kubectl-eks-regions=us-west-2,us-east-1` | Regions to scan for EKS clusters. Only profiles with this hint are used for discovery. |
+
+```ini
+[profile dev]
+# kubectl-eks-regions=us-west-2,us-east-1
+region = us-west-2
+role_arn = arn:aws:iam::111111111111:role/Admin
+source_profile = okta
+```
+
+### <a name='OktaAuthentication'></a>Okta authentication
+
+If you authenticate through [aws-okta-processor](https://github.com/godaddy/aws-okta-processor), kubectl-eks can run `aws eks update-kubeconfig` through a dedicated Okta profile and answer most of its interactive prompts for you.
+
+| Hint | Description |
+|------|-------------|
+| `# kubectl-eks-kubeconfig-profile=okta` | Profile used to generate the kubeconfig entry instead of the discovery profile. Its `credential_process` must call `aws-okta-processor authenticate`. |
+| `# kubectl-eks-okta-factor=token:hardware:yubico` | MFA factor. Passed as `--factor`. |
+| `# kubectl-eks-okta-app-url=https://example.okta.com/home/amazon_aws/0oaEXAMPLEAPPID/272` | Okta AWS application URL. Passed as `--application`. You can read it from the `Info: Calling ...` line that `aws-okta-processor` prints after you pick an application. |
+| `# kubectl-eks-role-preference=PowerUser,Ops,ReadOnly` | Role name suffixes in order of preference. The first one available in the target account is selected. Matching is case-insensitive and exact on the part after the last `-`. |
+
+Where several levels define the same hint, the most specific one wins:
+
+- `okta-factor`, `okta-app-url`, `role-preference`: discovery profile, then the kubeconfig profile, then the global default.
+- `kubeconfig-profile`: discovery profile, then the global default.
+- `credential_process`: always taken from the kubeconfig profile.
+
+```ini
+# Global defaults
+# kubectl-eks-kubeconfig-profile=okta
+# kubectl-eks-okta-factor=token:hardware:yubico
+# kubectl-eks-okta-app-url=https://example.okta.com/home/amazon_aws/0oaEXAMPLEAPPID/272
+# kubectl-eks-role-preference=PowerUser,Ops,ReadOnly
+
+[profile okta]
+credential_process = aws-okta-processor authenticate --user alice --organization example.okta.com
+
+[profile dev]
+# kubectl-eks-regions=us-west-2,us-east-1
+region = us-west-2
+role_arn = arn:aws:iam::111111111111:role/Admin
+source_profile = okta
+
+# This profile belongs to a different Okta application
+[profile pci]
+# kubectl-eks-regions=us-west-2,us-east-1
+# kubectl-eks-okta-app-url=https://example.okta.com/home/amazon_aws/0oaOTHERAPPID/272
+region = us-west-2
+role_arn = arn:aws:iam::222222222222:role/Admin
+source_profile = okta
+```
+
+How it works when `kubectl eks use` has to create or refresh a kubeconfig entry:
+
+1. `--factor` and `--application` are added to the profile's `credential_process`, so those prompts are skipped.
+2. If cached credentials are valid and belong to the cluster's account, they are reused and nothing is asked.
+3. If they belong to another account, are expired, or you pass `--reauth`, the roles are listed with `aws-okta-processor get-roles`, the role matching `role-preference` in the cluster's account is selected, and `--role` is added. When no preferred role exists in that account, only that account's roles are offered. If the role cannot be resolved, kubectl-eks warns and falls back to the normal interactive prompt.
+
+Things to know:
+
+- `kubectl eks use` reuses an existing kubeconfig context whose credentials still work, without calling AWS. Use `kubectl eks use <cluster> --reauth` to rebuild the entry through the Okta profile and force a fresh login.
+- `aws-okta-processor` keeps one credential cache entry per organization, user and `--key`. Switching to a cluster in another account replaces the cached credentials, so `kubectl` against the previous account's cluster fails until you switch back.
+- `kubectl eks -o wide` shows the IAM role the current kubeconfig context is using.
 
 ## <a name='Documentation'></a>Documentation
 
@@ -166,6 +244,12 @@ kubectl eks list --not-version 1.29
 
 # Switch to a specific cluster
 kubectl eks use my-cluster
+
+# Rebuild the kubeconfig entry and force a fresh Okta login
+kubectl eks use my-cluster --reauth
+
+# Show the current cluster and the IAM role in use
+kubectl eks -o wide
 
 # Pre-warm the cache for faster subsequent commands
 kubectl eks cache refresh

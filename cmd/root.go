@@ -206,6 +206,12 @@ Prerequisites:
 			region = ""
 		}
 
+		output, _ := cmd.Flags().GetString("output")
+		if output != "" && output != "wide" {
+			fmt.Fprintf(os.Stderr, "invalid output format %q: supported format is wide\n", output)
+			os.Exit(1)
+		}
+
 		// Load Kubernetes configuration
 		config, err := KubernetesConfigFlags.ToRawKubeConfigLoader().RawConfig()
 		if err != nil {
@@ -295,6 +301,8 @@ Prerequisites:
 
 			if clusterInfo.Arn != clusterArn {
 				fmt.Printf("%s\n", clusterArn)
+			} else if output == "wide" {
+				printutils.PrintCurrentClusterWide(noHeaders, currentIAMRole(config, clusterInfo), clusterInfo)
 			} else {
 				printutils.PrintClusters(noHeaders, clusterInfo)
 			}
@@ -319,6 +327,7 @@ func Execute() {
 func init() {
 	rootCmd.Flags().StringP("region", "r", "", "Switch to the same cluster in a different region")
 	rootCmd.Flags().BoolP("refresh", "u", false, "Do not use cached data, refresh from AWS")
+	rootCmd.Flags().StringP("output", "o", "", "Output format. Supported: wide (adds the IAM role in use)")
 	rootCmd.PersistentFlags().Bool("no-headers", false, "When using the default or custom-column output format, don't print headers (default print headers)")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Show verbose discovery warnings and diagnostics")
 

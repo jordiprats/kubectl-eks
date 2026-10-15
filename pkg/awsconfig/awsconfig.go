@@ -3,6 +3,7 @@ package awsconfig
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -12,25 +13,11 @@ import (
 
 var ConfigData *data.AWSConfig = nil
 
-func loadAWSConfig() {
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println("Error retrieving UserHomeDir")
-		os.Exit(1)
-	}
-
-	file, err := os.Open(homeDir + "/.aws/config")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
+func loadAWSConfigFromReader(reader io.Reader) *data.AWSConfig {
 	awsConfig := data.AWSConfig{Profiles: make(map[string]data.AWSProfile)}
 	awsConfig.Profiles[""] = data.AWSProfile{}
 
-	// Read the file
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(reader)
 	currentProfile := ""
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -54,6 +41,57 @@ func loadAWSConfig() {
 			awsConfig.Profiles[currentProfile] = currentProfileDetails
 		}
 
+		if strings.HasPrefix(line, "# kubectl-eks-kubeconfig-profile=") {
+			value := strings.TrimPrefix(line, "# kubectl-eks-kubeconfig-profile=")
+			value = strings.TrimSpace(value)
+			if currentProfile == "" {
+				awsConfig.KubeconfigProfile = value
+			} else {
+				p := awsConfig.Profiles[currentProfile]
+				p.KubeconfigProfile = value
+				awsConfig.Profiles[currentProfile] = p
+			}
+		}
+
+		if strings.HasPrefix(line, "# kubectl-eks-okta-factor=") {
+			value := strings.TrimPrefix(line, "# kubectl-eks-okta-factor=")
+			value = strings.TrimSpace(value)
+			if currentProfile == "" {
+				awsConfig.OktaFactor = value
+			} else {
+				p := awsConfig.Profiles[currentProfile]
+				p.OktaFactor = value
+				awsConfig.Profiles[currentProfile] = p
+			}
+		}
+
+		if strings.HasPrefix(line, "# kubectl-eks-okta-app-url=") {
+			value := strings.TrimPrefix(line, "# kubectl-eks-okta-app-url=")
+			value = strings.TrimSpace(value)
+			if currentProfile == "" {
+				awsConfig.AWSApp = value
+			} else {
+				p := awsConfig.Profiles[currentProfile]
+				p.AWSApp = value
+				awsConfig.Profiles[currentProfile] = p
+			}
+		}
+
+		if strings.HasPrefix(line, "# kubectl-eks-role-preference=") {
+			value := strings.TrimPrefix(line, "# kubectl-eks-role-preference=")
+			parts := strings.Split(value, ",")
+			for i, p := range parts {
+				parts[i] = strings.TrimSpace(p)
+			}
+			if currentProfile == "" {
+				awsConfig.RolePreference = parts
+			} else {
+				p := awsConfig.Profiles[currentProfile]
+				p.RolePreference = parts
+				awsConfig.Profiles[currentProfile] = p
+			}
+		}
+
 		// get rid of comments
 		if strings.Contains(line, "#") {
 			line = strings.Split(line, "#")[0]
@@ -73,21 +111,45 @@ func loadAWSConfig() {
 			awsConfig.Profiles[currentProfile] = data.AWSProfile{Name: currentProfile}
 		}
 
-		parts := strings.Split(line, "=")
+		parts := strings.SplitN(line, "=", 2)
 
 		// skip lines that are not key=value
 		if len(parts) != 2 {
 			continue
 		}
 
-		if strings.TrimSpace(parts[0]) == "region" {
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "region":
 			currentProfileDetails := awsConfig.Profiles[currentProfile]
-			currentProfileDetails.DefaultRegion = strings.TrimSpace(parts[1])
+			currentProfileDetails.DefaultRegion = value
+			awsConfig.Profiles[currentProfile] = currentProfileDetails
+		case "credential_process":
+			currentProfileDetails := awsConfig.Profiles[currentProfile]
+			currentProfileDetails.CredentialProcess = value
 			awsConfig.Profiles[currentProfile] = currentProfileDetails
 		}
 	}
 
-	ConfigData = &awsConfig
+	return &awsConfig
+}
+
+func loadAWSConfig() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println("Error retrieving UserHomeDir")
+		os.Exit(1)
+	}
+
+	file, err := os.Open(homeDir + "/.aws/config")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	ConfigData = loadAWSConfigFromReader(file)
 }
 
 func GetAWSProfilesWithEKSHints() []data.AWSProfile {
@@ -105,4 +167,55 @@ func GetAWSProfilesWithEKSHints() []data.AWSProfile {
 	}
 
 	return profiles
+}
+
+func GetEffectiveKubeconfigProfile(discoveryProfile string) string {
+	if ConfigData == nil {
+		loadAWSConfig()
+	}
+
+	if p, ok := ConfigData.Profiles[discoveryProfile]; ok && p.KubeconfigProfile != "" {
+		return p.KubeconfigProfile
+	}
+	return ConfigData.KubeconfigProfile
+}
+
+func GetOktaEnhancements(discoveryProfile, kubeconfigProfile string) (credentialProcess, factor, app string) {
+	if ConfigData == nil {
+		loadAWSConfig()
+	}
+
+	kp, ok := ConfigData.Profiles[kubeconfigProfile]
+	if !ok {
+		return "", "", ""
+	}
+	dp := ConfigData.Profiles[discoveryProfile]
+
+	factor = firstNonEmpty(dp.OktaFactor, kp.OktaFactor, ConfigData.OktaFactor)
+	app = firstNonEmpty(dp.AWSApp, kp.AWSApp, ConfigData.AWSApp)
+
+	return kp.CredentialProcess, factor, app
+}
+
+func GetRolePreference(discoveryProfile, kubeconfigProfile string) []string {
+	if ConfigData == nil {
+		loadAWSConfig()
+	}
+
+	if p := ConfigData.Profiles[discoveryProfile]; len(p.RolePreference) > 0 {
+		return p.RolePreference
+	}
+	if p := ConfigData.Profiles[kubeconfigProfile]; len(p.RolePreference) > 0 {
+		return p.RolePreference
+	}
+	return ConfigData.RolePreference
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

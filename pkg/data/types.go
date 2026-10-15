@@ -100,13 +100,22 @@ type HelmReleaseResult struct {
 }
 
 type AWSProfile struct {
-	Name           string
-	DefaultRegion  string
-	HintEKSRegions []string
+	Name              string
+	DefaultRegion     string
+	HintEKSRegions    []string
+	CredentialProcess string
+	KubeconfigProfile string
+	OktaFactor        string
+	AWSApp            string
+	RolePreference    []string
 }
 
 type AWSConfig struct {
-	Profiles map[string]AWSProfile
+	Profiles          map[string]AWSProfile
+	KubeconfigProfile string
+	OktaFactor        string
+	AWSApp            string
+	RolePreference    []string
 }
 
 type AMIInfo struct {
