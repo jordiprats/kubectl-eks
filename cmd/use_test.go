@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"errors"
+	"os"
 	"testing"
 
+	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,6 +86,46 @@ func TestPrintSwitchSuccess_ARN(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestSwitchMessage(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	require.NoError(t, os.MkdirAll(home+"/.aws", 0o755))
+	require.NoError(t, os.WriteFile(home+"/.aws/config", []byte(`[profile withrole]
+region = us-west-2
+role_arn = arn:aws:iam::123456789012:role/DeployRole
+source_profile = base
+
+[profile sso]
+sso_role_name = AdminAccess
+
+[profile norole]
+region = us-east-1
+`), 0o644))
+	awsconfig.ConfigData = nil
+	t.Cleanup(func() { awsconfig.ConfigData = nil })
+
+	assert.Equal(t,
+		`Switched to EKS cluster "c" in region "r" using profile "withrole" and role "DeployRole"`,
+		switchMessage("c", "", "r", "withrole", ""))
+	assert.Equal(t,
+		`Switched to EKS cluster "c" (namespace: "ns") in region "r" using profile "sso" and role "AdminAccess"`,
+		switchMessage("c", "ns", "r", "sso", ""))
+	assert.Equal(t,
+		`Switched to EKS cluster "c" in region "r" using profile "norole"`,
+		switchMessage("c", "", "r", "norole", ""))
+	assert.Equal(t,
+		`Switched to EKS cluster "c" in region "r"`,
+		switchMessage("c", "", "r", "", ""))
+	// exec profile shown when different from discovery profile
+	assert.Equal(t,
+		`Switched to EKS cluster "c" in region "r" using profile "withrole" and role "DeployRole" via profile "okta"`,
+		switchMessage("c", "", "r", "withrole", "okta"))
+	// exec profile omitted when same as discovery profile
+	assert.Equal(t,
+		`Switched to EKS cluster "c" in region "r" using profile "withrole" and role "DeployRole"`,
+		switchMessage("c", "", "r", "withrole", "withrole"))
 }
 
 func TestNormalizeSwitchMode(t *testing.T) {
@@ -181,27 +222,4 @@ func TestChooseRegionSwitchCluster_TooManyRegions(t *testing.T) {
 	assert.Contains(t, err.Error(), "more than two regions")
 }
 
-func TestSwitchMessage(t *testing.T) {
-	orig := lookupCallerARN
-	defer func() { lookupCallerARN = orig }()
 
-	var gotProfile, gotRegion string
-	lookupCallerARN = func(profile, region string) (string, error) {
-		gotProfile, gotRegion = profile, region
-		return "arn:aws:sts::111111111111:assumed-role/DeployRole/alice", nil
-	}
-
-	assert.Equal(t, `Switched to EKS cluster "c" in region "r" using profile "p" (role: "DeployRole")`, switchMessage("c", "", "r", "p"))
-	assert.Equal(t, "p", gotProfile)
-	assert.Equal(t, "r", gotRegion)
-	assert.Equal(t, `Switched to EKS cluster "c" (namespace: "ns") in region "r" using profile "p" (role: "DeployRole")`, switchMessage("c", "ns", "r", "p"))
-
-	// no profile: no lookup, no role
-	gotProfile = ""
-	assert.Equal(t, `Switched to EKS cluster "c" in region "r"`, switchMessage("c", "", "r", ""))
-	assert.Equal(t, "", gotProfile)
-
-	// failed lookup: role omitted
-	lookupCallerARN = func(string, string) (string, error) { return "", errors.New("expired") }
-	assert.Equal(t, `Switched to EKS cluster "c" in region "r" using profile "p"`, switchMessage("c", "", "r", "p"))
-}

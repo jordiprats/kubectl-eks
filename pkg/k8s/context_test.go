@@ -1,16 +1,12 @@
 package k8s
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -38,22 +34,10 @@ func TestFindContextForCluster_NotFound(t *testing.T) {
 	assert.Empty(t, name)
 }
 
-func TestFindContextForCluster_FoundWithValidCreds(t *testing.T) {
-	// Start a fake API server that responds to /version
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		resp := version.Info{Major: "1", Minor: "30", GitVersion: "v1.30.0"}
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
+func TestFindContextForCluster_Found(t *testing.T) {
 	clusterARN := "arn:aws:eks:us-east-1:123456789012:cluster/my-cluster"
 	cfg := clientcmdapi.NewConfig()
-	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{
-		Server:                   srv.URL,
-		CertificateAuthorityData: nil,
-		InsecureSkipTLSVerify:    true,
-	}
+	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{Server: "https://example.com"}
 	cfg.Contexts["my-ctx"] = &clientcmdapi.Context{Cluster: clusterARN}
 	cfg.CurrentContext = "my-ctx"
 	writeKubeconfig(t, cfg)
@@ -61,23 +45,6 @@ func TestFindContextForCluster_FoundWithValidCreds(t *testing.T) {
 	name, ok := FindContextForCluster(clusterARN)
 	assert.True(t, ok)
 	assert.Equal(t, "my-ctx", name)
-}
-
-func TestFindContextForCluster_ContextExistsButServerUnreachable(t *testing.T) {
-	clusterARN := "arn:aws:eks:us-west-2:111111111111:cluster/dead-cluster"
-	cfg := clientcmdapi.NewConfig()
-	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{
-		Server:                "https://127.0.0.1:1", // nothing listening
-		InsecureSkipTLSVerify: true,
-	}
-	cfg.Contexts["dead-ctx"] = &clientcmdapi.Context{Cluster: clusterARN}
-	cfg.CurrentContext = "dead-ctx"
-	writeKubeconfig(t, cfg)
-
-	name, ok := FindContextForCluster(clusterARN)
-	assert.False(t, ok)
-	// Context was found in config, so name is returned even though creds are invalid
-	assert.Equal(t, "dead-ctx", name)
 }
 
 func TestUseContext_Switches(t *testing.T) {

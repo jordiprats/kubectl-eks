@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -30,9 +29,14 @@ func GetCurrentNamespace() (string, error) {
 }
 
 // FindContextForCluster checks if a kubeconfig context already exists for the
-// given cluster ARN and that its credentials are still valid.
-// Returns the context name and true only when the context exists and a
-// lightweight API call (ServerVersion) succeeds.
+// given cluster ARN.
+// Returns the context name and true when a matching context is found.
+// It intentionally does NOT make any API calls to validate the credentials
+// because the exec-based credential plugins (e.g. aws-okta-processor) may
+// trigger interactive prompts (application selection, MFA) that bypass the
+// automated flags configured by kubectl-eks. When the cached credentials
+// turn out to be expired, the next kubectl command will fail and the user
+// can re-run with --reauth.
 func FindContextForCluster(clusterARN string) (string, bool) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	config, err := loadingRules.Load()
@@ -40,36 +44,12 @@ func FindContextForCluster(clusterARN string) (string, bool) {
 		return "", false
 	}
 
-	contextName := ""
 	for name, ctx := range config.Contexts {
 		if ctx.Cluster == clusterARN {
-			contextName = name
-			break
+			return name, true
 		}
 	}
-	if contextName == "" {
-		return "", false
-	}
-
-	// Build a client targeting the found context and verify the credentials
-	// are still valid with a cheap ServerVersion call (no RBAC required).
-	overrides := &clientcmd.ConfigOverrides{CurrentContext: contextName}
-	clientConfig := clientcmd.NewDefaultClientConfig(*config, overrides)
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return contextName, false
-	}
-
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return contextName, false
-	}
-
-	if _, err := clientset.Discovery().ServerVersion(); err != nil {
-		return contextName, false
-	}
-
-	return contextName, true
+	return "", false
 }
 
 // UseContext switches the current kubeconfig context.

@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
-	"github.com/jordiprats/kubectl-eks/pkg/sts"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var useCmdCommentPrefix string
@@ -260,8 +261,10 @@ func tryFastSwitch(target, namespace string) string {
 	var candidateARN string
 
 	if re.MatchString(target) {
-		// Target is an ARN — use it directly
+		// Target is an ARN — use it directly; load cache so we can
+		// look up the profile for the switch message.
 		candidateARN = target
+		loadCacheFromDisk()
 	} else {
 		// Target is a cluster name (or substring) — look it up in the cache
 		loadCacheFromDisk()
@@ -436,12 +439,9 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 		if err != nil {
 			fmt.Printf("Failed to set namespace: %s\n", err.Error())
 			os.Exit(1)
-		} else {
-			fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterInfo.ClusterName, namespace, clusterInfo.Region, clusterInfo.AWSProfile))
 		}
-	} else {
-		fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterInfo.ClusterName, "", clusterInfo.Region, clusterInfo.AWSProfile))
 	}
+	fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterInfo.ClusterName, namespace, clusterInfo.Region, clusterInfo.AWSProfile, ""))
 }
 
 // printSwitchSuccess prints the context-switch confirmation message.
@@ -457,23 +457,35 @@ func printSwitchSuccess(clusterArn, namespace, profile string) {
 		clusterName = m[2]
 	}
 
-	fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterName, namespace, region, profile))
+	// Read the AWS_PROFILE from the kubeconfig exec config (no AWS call).
+	execProfile := ""
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if cfg, err := loadingRules.Load(); err == nil {
+		execProfile = execAWSProfile(*cfg)
+	}
+
+	fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterName, namespace, region, profile, execProfile))
 }
 
-// switchMessage builds the context-switch confirmation text. The namespace,
-// profile and role parts are only included when known; the role is resolved
-// with STS GetCallerIdentity and omitted if that lookup fails.
-func switchMessage(clusterName, namespace, region, profile string) string {
+// switchMessage builds the context-switch confirmation text. The role is
+// read from ~/.aws/config (role_arn or sso_role_name) without any AWS calls.
+// execProfile is the AWS_PROFILE from the kubeconfig exec config (may be empty).
+func switchMessage(clusterName, namespace, region, profile, execProfile string) string {
 	msg := fmt.Sprintf("Switched to EKS cluster %q", clusterName)
 	if namespace != "" {
 		msg += fmt.Sprintf(" (namespace: %q)", namespace)
 	}
-	msg += fmt.Sprintf(" in region %q", region)
+	if region != "" {
+		msg += fmt.Sprintf(" in region %q", region)
+	}
 	if profile != "" {
 		msg += fmt.Sprintf(" using profile %q", profile)
-		if callerARN, err := lookupCallerARN(profile, region); err == nil {
-			msg += fmt.Sprintf(" (role: %q)", sts.RoleFromCallerARN(callerARN))
+		if role := awsconfig.GetProfileRoleName(profile); role != "" {
+			msg += fmt.Sprintf(" and role %q", role)
 		}
+	}
+	if execProfile != "" && execProfile != profile {
+		msg += fmt.Sprintf(" via profile %q", execProfile)
 	}
 	return msg
 }

@@ -487,9 +487,9 @@ func handleUseCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 				errMsg = fmt.Sprintf("Switched cluster but failed to set namespace: %v", err)
 				return
 			}
-			resultMsg = switchMessage(resolved.ClusterName, namespace, resolved.Region, resolved.AWSProfile)
+			resultMsg = switchMessage(resolved.ClusterName, namespace, resolved.Region, resolved.AWSProfile, "")
 		} else {
-			resultMsg = switchMessage(resolved.ClusterName, "", resolved.Region, resolved.AWSProfile)
+			resultMsg = switchMessage(resolved.ClusterName, "", resolved.Region, resolved.AWSProfile, "")
 		}
 	})
 
