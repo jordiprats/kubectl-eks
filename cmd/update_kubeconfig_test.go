@@ -177,3 +177,34 @@ func TestUpdateKubeConfigForCluster_PropagatesError(t *testing.T) {
 		t.Errorf("got %v, want %v", err, wantErr)
 	}
 }
+
+func TestUpdateKubeConfigForCluster_ForceReauthSkipsLookupAndDisablesCache(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
+
+	orig := forceReauth
+	forceReauth = true
+	t.Cleanup(func() { forceReauth = orig })
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.okta == nil {
+		t.Fatal("enhanced path should run")
+	}
+	if !calls.noAWSCache {
+		t.Error("--reauth should force --no-aws-cache even for the same account")
+	}
+	if calls.lookups != 0 {
+		t.Errorf("--reauth should skip the STS lookup, got %d lookups", calls.lookups)
+	}
+}
+
+func TestUseCmdHasReauthFlag(t *testing.T) {
+	f := useCmd.Flags().Lookup("reauth")
+	if f == nil {
+		t.Fatal("use command should define --reauth")
+	}
+	if f.DefValue != "false" {
+		t.Errorf("--reauth default = %q, want false", f.DefValue)
+	}
+}

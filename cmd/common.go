@@ -171,8 +171,8 @@ func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfi
 	if kubeconfigProfile != "" {
 		credentialProcess, factor, app := awsconfig.GetOktaEnhancements(kubeconfigProfile)
 		if credentialProcess != "" && (factor != "" || app != "") {
-			noAWSCache := false
-			if targetAccountID != "" {
+			noAWSCache := forceReauth
+			if !forceReauth && targetAccountID != "" {
 				cachedAccount, err := lookupCachedAccountID(kubeconfigProfile, region)
 				if err == nil && cachedAccount != targetAccountID {
 					noAWSCache = true

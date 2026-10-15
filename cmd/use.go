@@ -17,6 +17,8 @@ import (
 
 var useCmdCommentPrefix string
 
+var forceReauth bool
+
 func normalizeSwitchMode(raw string) (string, error) {
 	mode := strings.ToLower(strings.TrimSpace(raw))
 	if mode == "" {
@@ -387,7 +389,7 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 	// Fast path: if no profile override, check if kubeconfig already has a
 	// context for this cluster and switch to it directly, avoiding expensive
 	// AWS API calls.
-	if profile == "" {
+	if profile == "" && !forceReauth {
 		contextName, found := k8s.FindContextForCluster(clusterArn)
 		if found {
 			if err := k8s.UseContext(contextName); err == nil {
@@ -470,7 +472,7 @@ func printSwitchSuccess(clusterArn, namespace, profile string) {
 // cluster information, avoiding a redundant loadClusterByArn call.
 func switchClusterWithInfo(clusterInfo *data.ClusterInfo, namespace, profile string) {
 	// Fast path: context already exists in kubeconfig
-	if profile == "" {
+	if profile == "" && !forceReauth {
 		contextName, found := k8s.FindContextForCluster(clusterInfo.Arn)
 		if found {
 			if err := k8s.UseContext(contextName); err == nil {
@@ -602,6 +604,11 @@ profile for authentication.`,
 			os.Exit(1)
 		}
 
+		forceReauth, err = cmd.Flags().GetBool("reauth")
+		if err != nil {
+			forceReauth = false
+		}
+
 		comment, err := cmd.Flags().GetBool("bash-comment")
 		if err != nil {
 			comment = false
@@ -655,7 +662,7 @@ profile for authentication.`,
 
 		// Fast path: try to reuse an existing kubeconfig context without
 		// any AWS API calls. Works for both ARN and name-based lookups.
-		if profile == "" && !refresh {
+		if profile == "" && !refresh && !forceReauth {
 			arn := tryFastSwitch(target, namespace)
 			if arn != "" {
 				return
@@ -690,6 +697,7 @@ func init() {
 	useCmd.Flags().String("switch", "", "Switch to the counterpart cluster by dimension: side or region")
 	useCmd.Flags().Bool("oldest", false, "When multiple clusters match, switch to the oldest cluster")
 	useCmd.Flags().Bool("newest", false, "When multiple clusters match, switch to the newest cluster")
+	useCmd.Flags().Bool("reauth", false, "Skip the existing kubeconfig context, rebuild it and force a fresh login when an Okta credential_process is configured")
 	useCmd.Flags().Bool("bash-comment", false, "Prefix output with '# ' so it looks like a bash comment")
 
 	rootCmd.AddCommand(useCmd)
