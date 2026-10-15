@@ -144,6 +144,21 @@ func loadAWSConfigFromReader(reader io.Reader) *data.AWSConfig {
 	return &awsConfig
 }
 
+// tryLoadAWSConfig loads ~/.aws/config if it exists, silently leaving
+// ConfigData nil when the file is missing or unreadable.
+func tryLoadAWSConfig() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	file, err := os.Open(homeDir + "/.aws/config")
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	ConfigData = loadAWSConfigFromReader(file)
+}
+
 func loadAWSConfig() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -222,13 +237,16 @@ func GetRolePreference(discoveryProfile, kubeconfigProfile string) []string {
 // GetProfileRoleName returns a short role name for the given AWS profile,
 // extracted from ~/.aws/config without any AWS API calls.
 // It uses role_arn (taking the name after ":role/") or sso_role_name.
-// Returns "" if the profile has neither.
+// Returns "" if the profile has neither or the config can't be read.
 func GetProfileRoleName(profile string) string {
 	if profile == "" {
 		return ""
 	}
 	if ConfigData == nil {
-		loadAWSConfig()
+		tryLoadAWSConfig()
+	}
+	if ConfigData == nil {
+		return ""
 	}
 	p, ok := ConfigData.Profiles[profile]
 	if !ok {
