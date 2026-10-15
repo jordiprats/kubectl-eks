@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jordiprats/kubectl-eks/pkg/data"
@@ -178,4 +179,29 @@ func TestChooseRegionSwitchCluster_TooManyRegions(t *testing.T) {
 	_, err := chooseRegionSwitchCluster(current, clusters)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "more than two regions")
+}
+
+func TestSwitchMessage(t *testing.T) {
+	orig := lookupCallerARN
+	defer func() { lookupCallerARN = orig }()
+
+	var gotProfile, gotRegion string
+	lookupCallerARN = func(profile, region string) (string, error) {
+		gotProfile, gotRegion = profile, region
+		return "arn:aws:sts::111111111111:assumed-role/DeployRole/alice", nil
+	}
+
+	assert.Equal(t, `Switched to EKS cluster "c" in region "r" using profile "p" (role: "DeployRole")`, switchMessage("c", "", "r", "p"))
+	assert.Equal(t, "p", gotProfile)
+	assert.Equal(t, "r", gotRegion)
+	assert.Equal(t, `Switched to EKS cluster "c" (namespace: "ns") in region "r" using profile "p" (role: "DeployRole")`, switchMessage("c", "ns", "r", "p"))
+
+	// no profile: no lookup, no role
+	gotProfile = ""
+	assert.Equal(t, `Switched to EKS cluster "c" in region "r"`, switchMessage("c", "", "r", ""))
+	assert.Equal(t, "", gotProfile)
+
+	// failed lookup: role omitted
+	lookupCallerARN = func(string, string) (string, error) { return "", errors.New("expired") }
+	assert.Equal(t, `Switched to EKS cluster "c" in region "r" using profile "p"`, switchMessage("c", "", "r", "p"))
 }

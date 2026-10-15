@@ -12,6 +12,7 @@ import (
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
+	"github.com/jordiprats/kubectl-eks/pkg/sts"
 	"github.com/spf13/cobra"
 )
 
@@ -436,10 +437,10 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 			fmt.Printf("Failed to set namespace: %s\n", err.Error())
 			os.Exit(1)
 		} else {
-			fmt.Printf("%sSwitched to EKS cluster %q (namespace: %q) in region %q using profile %q\n", useCmdCommentPrefix, clusterInfo.ClusterName, namespace, clusterInfo.Region, clusterInfo.AWSProfile)
+			fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterInfo.ClusterName, namespace, clusterInfo.Region, clusterInfo.AWSProfile))
 		}
 	} else {
-		fmt.Printf("%sSwitched to EKS cluster %q in region %q using profile %q\n", useCmdCommentPrefix, clusterInfo.ClusterName, clusterInfo.Region, clusterInfo.AWSProfile)
+		fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterInfo.ClusterName, "", clusterInfo.Region, clusterInfo.AWSProfile))
 	}
 }
 
@@ -456,16 +457,25 @@ func printSwitchSuccess(clusterArn, namespace, profile string) {
 		clusterName = m[2]
 	}
 
-	switch {
-	case namespace != "" && profile != "":
-		fmt.Printf("%sSwitched to EKS cluster %q (namespace: %q) in region %q using profile %q\n", useCmdCommentPrefix, clusterName, namespace, region, profile)
-	case namespace != "":
-		fmt.Printf("%sSwitched to EKS cluster %q (namespace: %q) in region %q\n", useCmdCommentPrefix, clusterName, namespace, region)
-	case profile != "":
-		fmt.Printf("%sSwitched to EKS cluster %q in region %q using profile %q\n", useCmdCommentPrefix, clusterName, region, profile)
-	default:
-		fmt.Printf("%sSwitched to EKS cluster %q in region %q\n", useCmdCommentPrefix, clusterName, region)
+	fmt.Printf("%s%s\n", useCmdCommentPrefix, switchMessage(clusterName, namespace, region, profile))
+}
+
+// switchMessage builds the context-switch confirmation text. The namespace,
+// profile and role parts are only included when known; the role is resolved
+// with STS GetCallerIdentity and omitted if that lookup fails.
+func switchMessage(clusterName, namespace, region, profile string) string {
+	msg := fmt.Sprintf("Switched to EKS cluster %q", clusterName)
+	if namespace != "" {
+		msg += fmt.Sprintf(" (namespace: %q)", namespace)
 	}
+	msg += fmt.Sprintf(" in region %q", region)
+	if profile != "" {
+		msg += fmt.Sprintf(" using profile %q", profile)
+		if callerARN, err := lookupCallerARN(profile, region); err == nil {
+			msg += fmt.Sprintf(" (role: %q)", sts.RoleFromCallerARN(callerARN))
+		}
+	}
+	return msg
 }
 
 // switchClusterWithInfo switches to an EKS cluster using already-resolved
