@@ -83,3 +83,26 @@ func TestRootCmdHasOutputFlag(t *testing.T) {
 		t.Fatalf("root command should define -o/--output, got %+v", f)
 	}
 }
+
+func TestExecAWSProfileForContext(t *testing.T) {
+	cfg := clientcmdapi.Config{
+		CurrentContext: "a",
+		Contexts: map[string]*clientcmdapi.Context{
+			"a": {AuthInfo: "ua"},
+			"b": {AuthInfo: "ub"},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"ua": {Exec: &clientcmdapi.ExecConfig{Env: []clientcmdapi.ExecEnvVar{{Name: "AWS_PROFILE", Value: "prof-a"}}}},
+			"ub": {Exec: &clientcmdapi.ExecConfig{Args: []string{"--profile", "prof-b"}}},
+		},
+	}
+	if got := execAWSProfileForContext(cfg, "b"); got != "prof-b" {
+		t.Errorf("context b = %q, want prof-b", got)
+	}
+	if got := execAWSProfileForContext(cfg, "missing"); got != "" {
+		t.Errorf("missing context = %q, want empty", got)
+	}
+	if got := execAWSProfile(cfg); got != "prof-a" {
+		t.Errorf("current context = %q, want prof-a", got)
+	}
+}

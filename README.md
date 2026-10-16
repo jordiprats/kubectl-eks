@@ -115,7 +115,7 @@ How it works when `kubectl eks use` has to create or refresh a kubeconfig entry:
 
 Things to know:
 
-- `kubectl eks use` reuses an existing kubeconfig context whose credentials still work, without calling AWS. Use `kubectl eks use <cluster> --reauth` to rebuild the entry through the Okta profile and force a fresh login.
+- `kubectl eks use` reuses an existing kubeconfig context whose credentials still work, without calling AWS. Use `kubectl eks use <cluster> --reauth` to rebuild the entry through the Okta profile and force a fresh login. Use `--reauth=profile` to do that only when the existing context was built with a different AWS profile than the one requested (`--profile`, or the cluster's own profile); otherwise the existing context is reused. Use `--reauth=<profile>` (for example `--reauth=okta`) to name the profile the context must be using, which is the one shown after `via profile` in the switch message; the login is forced unless the context already uses it.
 - `aws-okta-processor` keeps one credential cache entry per organization, user and `--key`. Switching to a cluster in another account replaces the cached credentials, so `kubectl` against the previous account's cluster fails until you switch back.
 - `kubectl eks -o wide` shows the IAM role the current kubeconfig context is using.
 
@@ -247,6 +247,12 @@ kubectl eks use my-cluster
 
 # Rebuild the kubeconfig entry and force a fresh Okta login
 kubectl eks use my-cluster --reauth
+
+# Force a fresh login only if the context was built with a different profile
+kubectl eks use my-cluster --profile my-profile --reauth=profile
+
+# Force a fresh login unless the context already uses the okta profile
+kubectl eks use my-cluster --reauth=okta
 
 # Show the current cluster and the IAM role in use
 kubectl eks -o wide

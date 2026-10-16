@@ -218,8 +218,11 @@ func TestUseCmdHasReauthFlag(t *testing.T) {
 	if f == nil {
 		t.Fatal("use command should define --reauth")
 	}
-	if f.DefValue != "false" {
-		t.Errorf("--reauth default = %q, want false", f.DefValue)
+	if f.DefValue != "" {
+		t.Errorf("--reauth default = %q, want empty", f.DefValue)
+	}
+	if f.NoOptDefVal != reauthModeAlways {
+		t.Errorf("bare --reauth = %q, want %q", f.NoOptDefVal, reauthModeAlways)
 	}
 }
 
@@ -343,5 +346,27 @@ func TestUpdateKubeConfigForCluster_DiscoveryProfileAppOverridesGlobal(t *testin
 	}
 	if calls.opts.Application != "https://example.okta.com/global-app" {
 		t.Errorf("profiles without their own app should use the global one, got %q", calls.opts.Application)
+	}
+}
+
+func TestParseReauthMode(t *testing.T) {
+	tests := []struct {
+		in             string
+		always, onProf bool
+		profile        string
+	}{
+		{"", false, false, ""},
+		{"false", false, false, ""},
+		{"always", true, false, ""},
+		{"true", true, false, ""},
+		{"profile", false, true, ""},
+		{"PROFILE", false, true, ""},
+		{"okta", false, true, "okta"},
+	}
+	for _, tt := range tests {
+		always, onProf, profile := parseReauthMode(tt.in)
+		if always != tt.always || onProf != tt.onProf || profile != tt.profile {
+			t.Errorf("parseReauthMode(%q) = %v, %v, %q", tt.in, always, onProf, profile)
+		}
 	}
 }
