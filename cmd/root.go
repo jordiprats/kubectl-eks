@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
@@ -70,39 +71,66 @@ func loadClusterByArn(clusterArn string) *data.ClusterInfo {
 	loadCacheFromDisk()
 	if CachedData != nil {
 		if cached, exists := CachedData.ClusterByARN[clusterArn]; exists {
-			if cached.Arn == clusterArn && cached.AWSProfile != "" && cached.AWSProfile != "-" {
+			if cached.Arn == clusterArn && cached.AWSProfile != "" && cached.AWSProfile != "-" && cached.Status != "" {
 				return &cached
 			}
 		}
 	}
 
-	// search for an AWS profile that matches the account ID, region and cluster name
+	targetAccountID := matches[2]
+	targetRegion := matches[1]
+	targetCluster := matches[3]
+
+	// Try cached profile→account mapping first (avoids STS calls with expired creds)
 	awsProfiles := awsconfig.GetAWSProfilesWithEKSHints()
 	foundAwsProfile := ""
-	for _, profileDetails := range awsProfiles {
-		accountID, err := sts.GetAccountID(profileDetails.Name, matches[1])
-		if err != nil {
-			continue
-		}
-
-		if accountID != matches[2] {
-			continue
-		}
-
-		for _, hintRegion := range profileDetails.HintEKSRegions {
-			if hintRegion != matches[1] {
-				continue
+	if CachedData != nil && CachedData.ProfileAccounts != nil {
+		for _, profileDetails := range awsProfiles {
+			if CachedData.ProfileAccounts[profileDetails.Name] == targetAccountID {
+				for _, hintRegion := range profileDetails.HintEKSRegions {
+					if hintRegion == targetRegion {
+						foundAwsProfile = profileDetails.Name
+						break
+					}
+				}
+				if foundAwsProfile != "" {
+					break
+				}
 			}
+		}
+	}
 
-			// aws eks list-clusters --region <region> --profile <profile>
-			clusters, err := eks.GetClusters(profileDetails.Name, hintRegion)
+	// Fall back to STS calls if no cached mapping found
+	if foundAwsProfile == "" {
+		for _, profileDetails := range awsProfiles {
+			accountID, err := sts.GetAccountID(profileDetails.Name, targetRegion)
 			if err != nil {
 				continue
 			}
 
-			for _, cluster := range clusters {
-				if cluster != nil {
-					if *cluster == matches[3] {
+			if CachedData != nil {
+				if CachedData.ProfileAccounts == nil {
+					CachedData.ProfileAccounts = make(map[string]string)
+				}
+				CachedData.ProfileAccounts[profileDetails.Name] = accountID
+			}
+
+			if accountID != targetAccountID {
+				continue
+			}
+
+			for _, hintRegion := range profileDetails.HintEKSRegions {
+				if hintRegion != targetRegion {
+					continue
+				}
+
+				clusters, err := eks.GetClusters(profileDetails.Name, hintRegion)
+				if err != nil {
+					continue
+				}
+
+				for _, cluster := range clusters {
+					if cluster != nil && *cluster == targetCluster {
 						foundAwsProfile = profileDetails.Name
 					}
 				}
@@ -111,15 +139,27 @@ func loadClusterByArn(clusterArn string) *data.ClusterInfo {
 	}
 
 	if foundAwsProfile == "" {
-		foundAwsProfile = "-"
+		fmt.Fprintf(os.Stderr, "No AWS profile found for account %s in region %s\n", targetAccountID, targetRegion)
+		return nil
 	}
 
-	// create clusterInfo
-	clusterInfo = data.ClusterInfo{ClusterName: matches[3], Region: matches[1], AWSProfile: foundAwsProfile, AWSAccountID: matches[2]}
+	clusterInfo = data.ClusterInfo{
+		ClusterName:  targetCluster,
+		Region:       targetRegion,
+		AWSProfile:   foundAwsProfile,
+		AWSAccountID: targetAccountID,
+		Arn:          clusterArn,
+	}
 
-	clusterDesc, err := eks.DescribeCluster(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName)
-	if err != nil || clusterDesc == nil {
-		fmt.Fprintf(os.Stderr, "Error describing cluster %s: %v\n", clusterInfo.ClusterName, err.Error())
+	clusterDesc, err := eks.DescribeCluster(foundAwsProfile, targetRegion, targetCluster)
+	if err != nil {
+		if strings.Contains(err.Error(), "ResourceNotFoundException") || strings.Contains(err.Error(), "StatusCode: 404") {
+			fmt.Fprintf(os.Stderr, "Cluster %s does not exist in account %s region %s\n", targetCluster, targetAccountID, targetRegion)
+			return nil
+		}
+		fmt.Fprintf(os.Stderr, "Warning: could not describe cluster %s: %v\n", targetCluster, err)
+	} else if clusterDesc == nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not describe cluster %s\n", targetCluster)
 	} else {
 		clusterInfo.Status = string(clusterDesc.Status)
 		clusterInfo.Version = *clusterDesc.Version
@@ -135,7 +175,6 @@ func loadClusterByArn(clusterArn string) *data.ClusterInfo {
 		CachedData.ClusterByARN = make(map[string]data.ClusterInfo)
 	}
 
-	// save update loaded configuration
 	CachedData.ClusterByARN[clusterArn] = clusterInfo
 	saveCacheToDisk()
 

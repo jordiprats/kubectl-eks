@@ -19,19 +19,21 @@ type kubeconfigCalls struct {
 	roleLookups int
 	rolePref    []string
 	roleAccount string
+	execEnvARN  string
+	execEnvVars map[string]string
 }
 
 func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount string, lookupErr error) *kubeconfigCalls {
 	t.Helper()
 	calls := &kubeconfigCalls{}
 
-	origCfg, origLookup, origPlain, origOkta, origRole := awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole
+	origCfg, origLookup, origPlain, origOkta, origRole, origExecEnv := awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole, setExecEnv
 	t.Cleanup(func() {
-		awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole = origCfg, origLookup, origPlain, origOkta, origRole
+		awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole, setExecEnv = origCfg, origLookup, origPlain, origOkta, origRole, origExecEnv
 	})
 
 	awsconfig.ConfigData = cfg
-	lookupCachedAccountID = func(profile, region string) (string, error) {
+	lookupCachedAccountID = func(opts eks.EnhancedOptions, profile, region, targetAccountID string) (string, error) {
 		calls.lookups++
 		return cachedAccount, lookupErr
 	}
@@ -50,6 +52,11 @@ func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount strin
 		calls.roleAccount = accountID
 		calls.rolePref = pref
 		return okta.Choice{RoleARN: "arn:aws:iam::" + accountID + ":role/Team-PowerUser"}, nil
+	}
+	setExecEnv = func(clusterARN string, envVars map[string]string) error {
+		calls.execEnvARN = clusterARN
+		calls.execEnvVars = envVars
+		return nil
 	}
 	return calls
 }
@@ -317,6 +324,52 @@ func TestUpdateKubeConfigForCluster_RoleResolutionFailureFallsBackToPrompt(t *te
 	}
 }
 
+func TestUpdateKubeConfigForCluster_SetsIsolationKey(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.opts.Key != "111111111111-okta" {
+		t.Errorf("isolation key = %q, want %q", calls.opts.Key, "111111111111-okta")
+	}
+	wantARN := "arn:aws:eks:us-east-1:111111111111:cluster/c1"
+	if calls.execEnvARN != wantARN {
+		t.Errorf("exec env ARN = %q, want %q", calls.execEnvARN, wantARN)
+	}
+	if calls.execEnvVars["AWS_OKTA_KEY"] != "111111111111-okta" {
+		t.Errorf("exec env AWS_OKTA_KEY = %q, want %q", calls.execEnvVars["AWS_OKTA_KEY"], "111111111111-okta")
+	}
+}
+
+func TestUpdateKubeConfigForCluster_NoIsolationKeyWithoutAccountID(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "222222222222", nil)
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if calls.opts.Key != "" {
+		t.Errorf("isolation key should be empty without account ID, got %q", calls.opts.Key)
+	}
+	if calls.execEnvARN != "" {
+		t.Errorf("exec env should not be patched without account ID, got ARN %q", calls.execEnvARN)
+	}
+}
+
+func TestUpdateKubeConfigForCluster_NoIsolationKeyForTempKubeconfig(t *testing.T) {
+	calls := setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
+
+	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "/tmp/kc", "111111111111"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.opts.Key != "111111111111-okta" {
+		t.Errorf("key should still be passed to credential_process, got %q", calls.opts.Key)
+	}
+	if calls.execEnvARN != "" {
+		t.Errorf("exec env should not be patched for temp kubeconfig, got ARN %q", calls.execEnvARN)
+	}
+}
+
 func TestUpdateKubeConfigForCluster_UnknownTargetAccountSkipsRoleLookup(t *testing.T) {
 	calls := setupKubeconfigFakes(t, oktaConfig(), "222222222222", nil)
 
@@ -368,5 +421,29 @@ func TestParseReauthMode(t *testing.T) {
 		if always != tt.always || onProf != tt.onProf || profile != tt.profile {
 			t.Errorf("parseReauthMode(%q) = %v, %v, %q", tt.in, always, onProf, profile)
 		}
+	}
+}
+
+func TestCheckCmdFlags(t *testing.T) {
+	q := checkCmd.Flags().Lookup("quiet")
+	if q == nil {
+		t.Fatal("check command should define --quiet")
+	}
+	if q.Shorthand != "q" || q.DefValue != "false" {
+		t.Errorf("--quiet shorthand/default = %q/%q, want q/false", q.Shorthand, q.DefValue)
+	}
+	r := checkCmd.Flags().Lookup("reauth")
+	if r == nil {
+		t.Fatal("check command should define --reauth")
+	}
+	if r.DefValue != "false" {
+		t.Errorf("--reauth default = %q, want false", r.DefValue)
+	}
+}
+
+func TestCheckCmdRegistered(t *testing.T) {
+	cmd, _, err := rootCmd.Find([]string{"check"})
+	if err != nil || cmd != checkCmd {
+		t.Fatalf("check should be registered on the root command, got %v, %v", cmd, err)
 	}
 }

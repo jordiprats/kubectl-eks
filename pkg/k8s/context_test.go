@@ -85,3 +85,88 @@ func TestUseContext_EmptyConfig(t *testing.T) {
 	err := UseContext("anything")
 	assert.Error(t, err)
 }
+
+func TestSetExecEnv_AddsNewVar(t *testing.T) {
+	clusterARN := "arn:aws:eks:us-east-1:123456789012:cluster/my-cluster"
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{Server: "https://example.com"}
+	cfg.AuthInfos[clusterARN] = &clientcmdapi.AuthInfo{
+		Exec: &clientcmdapi.ExecConfig{
+			APIVersion: "client.authentication.k8s.io/v1beta1",
+			Command:    "aws",
+			Args:       []string{"eks", "get-token"},
+			Env: []clientcmdapi.ExecEnvVar{
+				{Name: "AWS_PROFILE", Value: "okta"},
+			},
+		},
+	}
+	cfg.Contexts["my-ctx"] = &clientcmdapi.Context{Cluster: clusterARN, AuthInfo: clusterARN}
+	cfg.CurrentContext = "my-ctx"
+	path := writeKubeconfig(t, cfg)
+
+	err := SetExecEnv(clusterARN, map[string]string{"AWS_OKTA_KEY": "123-okta"})
+	require.NoError(t, err)
+
+	updated, err := clientcmd.LoadFromFile(path)
+	require.NoError(t, err)
+
+	user := updated.AuthInfos[clusterARN]
+	require.NotNil(t, user)
+	require.NotNil(t, user.Exec)
+
+	envMap := make(map[string]string)
+	for _, e := range user.Exec.Env {
+		envMap[e.Name] = e.Value
+	}
+	assert.Equal(t, "okta", envMap["AWS_PROFILE"])
+	assert.Equal(t, "123-okta", envMap["AWS_OKTA_KEY"])
+}
+
+func TestSetExecEnv_UpdatesExistingVar(t *testing.T) {
+	clusterARN := "arn:aws:eks:us-east-1:123456789012:cluster/my-cluster"
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{Server: "https://example.com"}
+	cfg.AuthInfos[clusterARN] = &clientcmdapi.AuthInfo{
+		Exec: &clientcmdapi.ExecConfig{
+			APIVersion: "client.authentication.k8s.io/v1beta1",
+			Command:    "aws",
+			Env: []clientcmdapi.ExecEnvVar{
+				{Name: "AWS_PROFILE", Value: "okta"},
+				{Name: "AWS_OKTA_KEY", Value: "old-key"},
+			},
+		},
+	}
+	cfg.Contexts["my-ctx"] = &clientcmdapi.Context{Cluster: clusterARN, AuthInfo: clusterARN}
+	cfg.CurrentContext = "my-ctx"
+	path := writeKubeconfig(t, cfg)
+
+	err := SetExecEnv(clusterARN, map[string]string{"AWS_OKTA_KEY": "new-key"})
+	require.NoError(t, err)
+
+	updated, err := clientcmd.LoadFromFile(path)
+	require.NoError(t, err)
+
+	envMap := make(map[string]string)
+	for _, e := range updated.AuthInfos[clusterARN].Exec.Env {
+		envMap[e.Name] = e.Value
+	}
+	assert.Equal(t, "new-key", envMap["AWS_OKTA_KEY"])
+	assert.Equal(t, "okta", envMap["AWS_PROFILE"])
+}
+
+func TestSetExecEnv_NoMatchingContext(t *testing.T) {
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters["other"] = &clientcmdapi.Cluster{Server: "https://other.example.com"}
+	cfg.Contexts["other-ctx"] = &clientcmdapi.Context{Cluster: "other", AuthInfo: "other"}
+	cfg.CurrentContext = "other-ctx"
+	writeKubeconfig(t, cfg)
+
+	err := SetExecEnv("arn:aws:eks:us-east-1:123456789012:cluster/missing", map[string]string{"AWS_OKTA_KEY": "k"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no context found")
+}
+
+func TestSetExecEnv_EmptyEnvVars(t *testing.T) {
+	err := SetExecEnv("anything", map[string]string{})
+	assert.NoError(t, err)
+}

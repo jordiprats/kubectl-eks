@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
@@ -299,6 +300,11 @@ func loadClusters(profile, region string) {
 	accountID, err := sts.GetAccountID(profile, region)
 	if err != nil {
 		accountID = "-"
+	} else {
+		if CachedData.ProfileAccounts == nil {
+			CachedData.ProfileAccounts = make(map[string]string)
+		}
+		CachedData.ProfileAccounts[profile] = accountID
 	}
 
 	for _, cluster := range clusters {
@@ -321,6 +327,17 @@ func loadClusters(profile, region string) {
 			clusterData.Version = *clusterInfo.Version
 			clusterData.Arn = *clusterInfo.Arn
 			clusterData.CreatedAt = clusterInfo.CreatedAt.Format("2006-01-02 15:04:05")
+
+			if accountID == "-" {
+				if m := regexp.MustCompile(`arn:aws:eks:[^:]+:(\d{12}):`).FindStringSubmatch(*clusterInfo.Arn); m != nil {
+					accountID = m[1]
+					clusterData.AWSAccountID = accountID
+					if CachedData.ProfileAccounts == nil {
+						CachedData.ProfileAccounts = make(map[string]string)
+					}
+					CachedData.ProfileAccounts[profile] = accountID
+				}
+			}
 		}
 
 		// CachedData.ClusterInfo[clusterName] = clusterInfo

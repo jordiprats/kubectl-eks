@@ -9,6 +9,7 @@ import (
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
 	"github.com/jordiprats/kubectl-eks/pkg/eks"
+	"github.com/jordiprats/kubectl-eks/pkg/k8s"
 	"github.com/jordiprats/kubectl-eks/pkg/okta"
 	"github.com/jordiprats/kubectl-eks/pkg/sts"
 	"k8s.io/client-go/rest"
@@ -162,27 +163,49 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 }
 
 var (
-	lookupCachedAccountID   = sts.TryGetAccountID
-	resolveOktaRole         = okta.ResolveRole
+	lookupCachedAccountID   = cachedAccountForOptions
+	resolveOktaRole        = okta.ResolveRole
 	runUpdateKubeConfig     = eks.UpdateKubeConfig
 	runUpdateKubeConfigOkta = eks.UpdateKubeConfigWithEnhancedCredentials
+	setExecEnv              = k8s.SetExecEnv
 )
+
+// cachedAccountForOptions reports the account the kubeconfig credentials would
+// resolve to without prompting. With an isolation key the credentials live in
+// that key's own cache (the shared profile cache is irrelevant), and the key
+// already encodes the account, so a valid cached entry means targetAccountID.
+func cachedAccountForOptions(opts eks.EnhancedOptions, profile, region, targetAccountID string) (string, error) {
+	if opts.Key == "" {
+		return sts.TryGetAccountID(profile, region)
+	}
+	args, err := okta.SplitCommand(eks.EnhancedCredentialProcess(opts))
+	if err != nil {
+		return "", err
+	}
+	if !okta.HasValidCredentials(args) {
+		return "", fmt.Errorf("no valid cached credentials for key %q", opts.Key)
+	}
+	return targetAccountID, nil
+}
 
 func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfig, targetAccountID string) error {
 	kubeconfigProfile := awsconfig.GetEffectiveKubeconfigProfile(discoveryProfile)
 	if kubeconfigProfile != "" {
 		credentialProcess, factor, app := awsconfig.GetOktaEnhancements(discoveryProfile, kubeconfigProfile)
 		if credentialProcess != "" && (factor != "" || app != "") {
+			isoKey := eks.IsolationKey(targetAccountID, kubeconfigProfile)
+
 			opts := eks.EnhancedOptions{
 				CredentialProcess: credentialProcess,
 				Factor:            factor,
 				Application:       app,
 				NoAWSCache:        forceReauth,
+				Key:               isoKey,
 			}
 
 			needsLogin := forceReauth
 			if !forceReauth && targetAccountID != "" {
-				cachedAccount, err := lookupCachedAccountID(kubeconfigProfile, region)
+				cachedAccount, err := lookupCachedAccountID(opts, kubeconfigProfile, region, targetAccountID)
 				if err != nil {
 					needsLogin = true
 				} else if cachedAccount != targetAccountID {
@@ -201,7 +224,17 @@ func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfi
 				}
 			}
 
-			return runUpdateKubeConfigOkta(kubeconfigProfile, region, clusterName, kubeConfig, opts)
+			if err := runUpdateKubeConfigOkta(kubeconfigProfile, region, clusterName, kubeConfig, opts); err != nil {
+				return err
+			}
+
+			if isoKey != "" && kubeConfig == "" {
+				clusterARN := fmt.Sprintf("arn:aws:eks:%s:%s:cluster/%s", region, targetAccountID, clusterName)
+				if err := setExecEnv(clusterARN, map[string]string{"AWS_OKTA_KEY": isoKey}); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: could not set isolation key in kubeconfig exec env: %v\n", err)
+				}
+			}
+			return nil
 		}
 		return runUpdateKubeConfig(kubeconfigProfile, region, clusterName, kubeConfig)
 	}

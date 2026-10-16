@@ -59,8 +59,9 @@ type NodeInfo struct {
 }
 
 type KubeCtlEksCache struct {
-	ClusterByARN map[string]ClusterInfo
-	ClusterList  map[string]map[string][]ClusterInfo
+	ClusterByARN    map[string]ClusterInfo
+	ClusterList     map[string]map[string][]ClusterInfo
+	ProfileAccounts map[string]string
 }
 
 type JsonPathResult struct {
