@@ -30,6 +30,7 @@ type EnhancedOptions struct {
 	Role              string
 	AccountAlias      string
 	NoAWSCache        bool
+	Key               string
 }
 
 func buildEnhancedCredentialProcess(o EnhancedOptions) string {
@@ -49,7 +50,20 @@ func buildEnhancedCredentialProcess(o EnhancedOptions) string {
 	if o.NoAWSCache {
 		enhanced += " --no-aws-cache"
 	}
+	if o.Key != "" {
+		enhanced += " --key=" + o.Key
+	}
 	return enhanced
+}
+
+func IsolationKey(accountID, profile string) string {
+	if accountID == "" {
+		return ""
+	}
+	if profile != "" {
+		return accountID + "-" + profile
+	}
+	return accountID
 }
 
 func buildTempAWSConfig(profile, credentialProcess string) string {

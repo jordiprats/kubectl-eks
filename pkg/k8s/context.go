@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 func SetNamespace(namespace string) error {
@@ -50,6 +51,56 @@ func FindContextForCluster(clusterARN string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// SetExecEnv adds or updates environment variables in the exec block of the
+// kubeconfig user associated with clusterARN. Existing env vars with the same
+// name are replaced; others are left untouched.
+func SetExecEnv(clusterARN string, envVars map[string]string) error {
+	if len(envVars) == 0 {
+		return nil
+	}
+
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	config, err := loadingRules.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
+
+	var authInfoName string
+	for _, ctx := range config.Contexts {
+		if ctx.Cluster == clusterARN {
+			authInfoName = ctx.AuthInfo
+			break
+		}
+	}
+	if authInfoName == "" {
+		return fmt.Errorf("no context found for cluster %q", clusterARN)
+	}
+
+	user := config.AuthInfos[authInfoName]
+	if user == nil || user.Exec == nil {
+		return fmt.Errorf("no exec config found for user %q", authInfoName)
+	}
+
+	for name, value := range envVars {
+		found := false
+		for i, e := range user.Exec.Env {
+			if e.Name == name {
+				user.Exec.Env[i].Value = value
+				found = true
+				break
+			}
+		}
+		if !found {
+			user.Exec.Env = append(user.Exec.Env, clientcmdapi.ExecEnvVar{
+				Name:  name,
+				Value: value,
+			})
+		}
+	}
+
+	return clientcmd.WriteToFile(*config, loadingRules.GetDefaultFilename())
 }
 
 // UseContext switches the current kubeconfig context.

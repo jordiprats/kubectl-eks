@@ -36,6 +36,37 @@ func TestBuildEnhancedCredentialProcess(t *testing.T) {
 	}
 }
 
+func TestBuildEnhancedCredentialProcess_WithKey(t *testing.T) {
+	base := "aws-okta-processor authenticate --user alice"
+	opts := EnhancedOptions{
+		CredentialProcess: base,
+		Factor:            "f",
+		Key:               "111111111111-okta",
+	}
+	got := buildEnhancedCredentialProcess(opts)
+	want := base + " --factor=f --key=111111111111-okta"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestIsolationKey(t *testing.T) {
+	tests := []struct {
+		account, profile, want string
+	}{
+		{"", "", ""},
+		{"", "okta", ""},
+		{"111111111111", "", "111111111111"},
+		{"111111111111", "okta", "111111111111-okta"},
+	}
+	for _, tt := range tests {
+		got := IsolationKey(tt.account, tt.profile)
+		if got != tt.want {
+			t.Errorf("IsolationKey(%q, %q) = %q, want %q", tt.account, tt.profile, got, tt.want)
+		}
+	}
+}
+
 func TestBuildTempAWSConfig(t *testing.T) {
 	got := buildTempAWSConfig("okta", "cmd --flag=1")
 	want := "[profile okta]\ncredential_process=cmd --flag=1\n"

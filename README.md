@@ -116,7 +116,8 @@ How it works when `kubectl eks use` has to create or refresh a kubeconfig entry:
 Things to know:
 
 - `kubectl eks use` reuses an existing kubeconfig context whose credentials still work, without calling AWS. Use `kubectl eks use <cluster> --reauth` to rebuild the entry through the Okta profile and force a fresh login. Use `--reauth=profile` to do that only when the existing context was built with a different AWS profile than the one requested (`--profile`, or the cluster's own profile); otherwise the existing context is reused. Use `--reauth=<profile>` (for example `--reauth=okta`) to name the profile the context must be using, which is the one shown after `via profile` in the switch message; the login is forced unless the context already uses it.
-- `aws-okta-processor` keeps one credential cache entry per organization, user and `--key`. Switching to a cluster in another account replaces the cached credentials, so `kubectl` against the previous account's cluster fails until you switch back.
+- `aws-okta-processor` keeps one credential cache entry per organization, user and `--key`. When the cluster's account is known, kubectl-eks passes `--key=<account-id>-<profile>` in the `credential_process` and sets `AWS_OKTA_KEY` with the same value in the kubeconfig `exec` env, so each account/profile pair gets its own cache entry and switching to a cluster in another account does not replace the credentials of the previous one. Temporary kubeconfigs (`--kubeconfig`) and clusters without a known account ID are not given a key.
+- `kubectl eks check` verifies that the credentials of the current context are still valid (STS `GetCallerIdentity`) and exits 0 or 1. Add `--reauth` to refresh them when expired, and `-q` to only use the exit code, for example `kubectl eks check --reauth -q && argo submit ...`.
 - `kubectl eks -o wide` shows the IAM role the current kubeconfig context is using.
 
 ## <a name='Documentation'></a>Documentation
@@ -126,6 +127,7 @@ Full command reference documentation is available in the [docs/](docs/) director
 - [kubectl eks](docs/kubectl-eks.md) - Main command and cluster information
 - [kubectl eks list](docs/kubectl-eks_list.md) - List all EKS clusters
 - [kubectl eks use](docs/kubectl-eks_use.md) - Switch to a different cluster
+- [kubectl eks check](docs/kubectl-eks_check.md) - Check whether the current credentials are valid
 - [kubectl eks cache](docs/kubectl-eks_cache.md) - Manage the local cluster cache
 - [kubectl eks mget](docs/kubectl-eks_mget.md) - Get resources from multiple clusters
 - [kubectl eks mhelm](docs/kubectl-eks_mhelm.md) - List Helm releases across multiple clusters
@@ -256,6 +258,9 @@ kubectl eks use my-cluster --reauth=okta
 
 # Show the current cluster and the IAM role in use
 kubectl eks -o wide
+
+# Check the current credentials, refreshing them if they expired
+kubectl eks check --reauth
 
 # Pre-warm the cache for faster subsequent commands
 kubectl eks cache refresh
