@@ -13,7 +13,11 @@ import (
 var lookupCallerARN = sts.TryGetCallerARN
 
 func execAWSProfile(config clientcmdapi.Config) string {
-	ctx := config.Contexts[config.CurrentContext]
+	return execAWSProfileForContext(config, config.CurrentContext)
+}
+
+func execAWSProfileForContext(config clientcmdapi.Config, contextName string) string {
+	ctx := config.Contexts[contextName]
 	if ctx == nil {
 		return ""
 	}

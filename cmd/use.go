@@ -21,6 +21,20 @@ var useCmdCommentPrefix string
 
 var forceReauth bool
 
+// reauthOnProfileMismatch is set by --reauth=profile or --reauth=<profile>:
+// the login is only forced when the kubeconfig context for the cluster was
+// built with another AWS profile than the expected one.
+var reauthOnProfileMismatch bool
+
+// reauthExpectedProfile is the profile given as --reauth=<profile>. When empty
+// (--reauth=profile) the expected profile is derived from the requested one.
+var reauthExpectedProfile string
+
+const (
+	reauthModeAlways  = "always"
+	reauthModeProfile = "profile"
+)
+
 func normalizeSwitchMode(raw string) (string, error) {
 	mode := strings.ToLower(strings.TrimSpace(raw))
 	if mode == "" {
@@ -291,6 +305,18 @@ func tryFastSwitch(target, namespace string) string {
 		return ""
 	}
 
+	if reauthOnProfileMismatch {
+		cachedProfile := ""
+		if CachedData != nil {
+			if info, ok := CachedData.ClusterByARN[candidateARN]; ok {
+				cachedProfile = info.AWSProfile
+			}
+		}
+		if profileMismatch(candidateARN, cachedProfile) {
+			return ""
+		}
+	}
+
 	if err := k8s.UseContext(contextName); err != nil {
 		return ""
 	}
@@ -389,7 +415,79 @@ func resolveClusterForUse(target, profile, profileContains, profileNotContains, 
 	return &matches[0], nil, nil
 }
 
+// parseReauthMode translates the --reauth value into the package level
+// switches. An empty value (or "false") leaves reauthentication disabled,
+// "always"/"true" forces it, "profile" forces it when the context's profile
+// differs from the requested one, and any other value is taken as the profile
+// the context is expected to use.
+func parseReauthMode(value string) (always, onProfileMismatch bool, expectedProfile string) {
+	value = strings.TrimSpace(value)
+	switch strings.ToLower(value) {
+	case "", "false":
+		return false, false, ""
+	case reauthModeAlways, "true":
+		return true, false, ""
+	case reauthModeProfile:
+		return false, true, ""
+	}
+	return false, true, value
+}
+
+// profileMismatch reports whether the kubeconfig context for clusterArn was
+// built with an AWS profile other than the requested one. requestedProfile is
+// the discovery profile (the --profile override or the cluster's own profile);
+// it is ignored when --reauth=<profile> names the expected profile.
+// It returns false when there is nothing to compare: no existing context or no
+// profile to compare against.
+func profileMismatch(clusterArn, requestedProfile string) bool {
+	want := reauthExpectedProfile
+	if want == "" {
+		if requestedProfile == "" {
+			return false
+		}
+		want = awsconfig.GetEffectiveKubeconfigProfile(requestedProfile)
+		if want == "" {
+			want = requestedProfile
+		}
+	}
+
+	contextName, found := k8s.FindContextForCluster(clusterArn)
+	if !found {
+		return false
+	}
+
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	cfg, err := loadingRules.Load()
+	if err != nil {
+		return false
+	}
+	return execAWSProfileForContext(*cfg, contextName) != want
+}
+
+// applyReauthPolicy resolves --reauth for a single cluster. With
+// --reauth=profile it turns forceReauth on only when the profile in the
+// existing kubeconfig context differs from the requested one; plain --reauth
+// leaves forceReauth untouched (always on).
+func applyReauthPolicy(clusterArn, requestedProfile string) {
+	if reauthOnProfileMismatch {
+		forceReauth = profileMismatch(clusterArn, requestedProfile)
+	}
+}
+
 func SwitchToCluster(clusterArn, namespace, profile string) {
+	if reauthOnProfileMismatch {
+		requested := profile
+		if requested == "" {
+			loadCacheFromDisk()
+			if CachedData != nil {
+				if info, ok := CachedData.ClusterByARN[clusterArn]; ok {
+					requested = info.AWSProfile
+				}
+			}
+		}
+		applyReauthPolicy(clusterArn, requested)
+	}
+
 	// Fast path: if no profile override, check if kubeconfig already has a
 	// context for this cluster and switch to it directly, avoiding expensive
 	// AWS API calls.
@@ -493,6 +591,12 @@ func switchMessage(clusterName, namespace, region, profile, execProfile string) 
 // switchClusterWithInfo switches to an EKS cluster using already-resolved
 // cluster information, avoiding a redundant loadClusterByArn call.
 func switchClusterWithInfo(clusterInfo *data.ClusterInfo, namespace, profile string) {
+	requestedProfile := clusterInfo.AWSProfile
+	if profile != "" {
+		requestedProfile = profile
+	}
+	applyReauthPolicy(clusterInfo.Arn, requestedProfile)
+
 	// Fast path: context already exists in kubeconfig
 	if profile == "" && !forceReauth {
 		contextName, found := k8s.FindContextForCluster(clusterInfo.Arn)
@@ -626,10 +730,11 @@ profile for authentication.`,
 			os.Exit(1)
 		}
 
-		forceReauth, err = cmd.Flags().GetBool("reauth")
+		reauthValue, err := cmd.Flags().GetString("reauth")
 		if err != nil {
-			forceReauth = false
+			reauthValue = ""
 		}
+		forceReauth, reauthOnProfileMismatch, reauthExpectedProfile = parseReauthMode(reauthValue)
 
 		comment, err := cmd.Flags().GetBool("bash-comment")
 		if err != nil {
@@ -719,7 +824,8 @@ func init() {
 	useCmd.Flags().String("switch", "", "Switch to the counterpart cluster by dimension: side or region")
 	useCmd.Flags().Bool("oldest", false, "When multiple clusters match, switch to the oldest cluster")
 	useCmd.Flags().Bool("newest", false, "When multiple clusters match, switch to the newest cluster")
-	useCmd.Flags().Bool("reauth", false, "Skip the existing kubeconfig context, rebuild it and force a fresh login when an Okta credential_process is configured")
+	useCmd.Flags().String("reauth", "", "Skip the existing kubeconfig context, rebuild it and force a fresh login when an Okta credential_process is configured. Use --reauth=profile to do so only when the context was built with a different AWS profile than the requested one, or --reauth=<profile> to do so unless the context already uses that profile")
+	useCmd.Flags().Lookup("reauth").NoOptDefVal = reauthModeAlways
 	useCmd.Flags().Bool("bash-comment", false, "Prefix output with '# ' so it looks like a bash comment")
 
 	rootCmd.AddCommand(useCmd)
