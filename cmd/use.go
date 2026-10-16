@@ -19,6 +19,16 @@ import (
 
 var useCmdCommentPrefix string
 
+func resolveAccountID(clusterInfo *data.ClusterInfo) string {
+	if clusterInfo.AWSAccountID != "" && clusterInfo.AWSAccountID != "-" {
+		return clusterInfo.AWSAccountID
+	}
+	if m := regexp.MustCompile(`arn:aws:eks:[^:]+:(\d{12}):`).FindStringSubmatch(clusterInfo.Arn); m != nil {
+		return m[1]
+	}
+	return clusterInfo.AWSAccountID
+}
+
 var forceReauth bool
 
 // reauthOnProfileMismatch is set by --reauth=profile or --reauth=<profile>:
@@ -526,7 +536,8 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 		clusterInfo.AWSProfile = profile
 	}
 
-	err := updateKubeConfigForCluster(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "", clusterInfo.AWSAccountID)
+	accountID := resolveAccountID(clusterInfo)
+	err := updateKubeConfigForCluster(clusterInfo.AWSProfile, clusterInfo.Region, clusterInfo.ClusterName, "", accountID)
 	if err != nil {
 		fmt.Printf("Failed to update kubeconfig: %s\n", err.Error())
 		os.Exit(1)
@@ -619,7 +630,8 @@ func switchClusterWithInfo(clusterInfo *data.ClusterInfo, namespace, profile str
 		effectiveProfile = profile
 	}
 
-	err := updateKubeConfigForCluster(effectiveProfile, clusterInfo.Region, clusterInfo.ClusterName, "", clusterInfo.AWSAccountID)
+	accountID := resolveAccountID(clusterInfo)
+	err := updateKubeConfigForCluster(effectiveProfile, clusterInfo.Region, clusterInfo.ClusterName, "", accountID)
 	if err != nil {
 		fmt.Printf("Failed to update kubeconfig: %s\n", err.Error())
 		os.Exit(1)

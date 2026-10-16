@@ -56,6 +56,10 @@ func buildEnhancedCredentialProcess(o EnhancedOptions) string {
 	return enhanced
 }
 
+func EnhancedCredentialProcess(o EnhancedOptions) string {
+	return buildEnhancedCredentialProcess(o)
+}
+
 func IsolationKey(accountID, profile string) string {
 	if accountID == "" {
 		return ""

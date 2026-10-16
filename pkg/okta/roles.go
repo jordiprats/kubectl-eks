@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
+	"time"
 )
 
 type Role struct {
@@ -30,6 +32,33 @@ var runGetRoles = func(args []string) ([]byte, error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 	return cmd.Output()
+}
+
+// HasValidCredentials runs a credential_process without a controlling
+// terminal and with stdin closed, so it can only succeed from its cache: any
+// login or role prompt fails instead of interrupting the user.
+func HasValidCredentials(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	var creds struct {
+		Expiration string `json:"Expiration"`
+	}
+	start := bytes.IndexByte(out, '{')
+	if start < 0 || json.Unmarshal(out[start:], &creds) != nil {
+		return false
+	}
+	exp, err := time.Parse(time.RFC3339, creds.Expiration)
+	if err != nil {
+		return false
+	}
+	return time.Until(exp) > time.Minute
 }
 
 func SplitCommand(s string) ([]string, error) {

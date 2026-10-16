@@ -33,7 +33,7 @@ func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount strin
 	})
 
 	awsconfig.ConfigData = cfg
-	lookupCachedAccountID = func(profile, region string) (string, error) {
+	lookupCachedAccountID = func(opts eks.EnhancedOptions, profile, region, targetAccountID string) (string, error) {
 		calls.lookups++
 		return cachedAccount, lookupErr
 	}

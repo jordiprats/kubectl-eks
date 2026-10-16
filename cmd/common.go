@@ -163,12 +163,30 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 }
 
 var (
-	lookupCachedAccountID   = sts.TryGetAccountID
-	resolveOktaRole         = okta.ResolveRole
+	lookupCachedAccountID   = cachedAccountForOptions
+	resolveOktaRole        = okta.ResolveRole
 	runUpdateKubeConfig     = eks.UpdateKubeConfig
 	runUpdateKubeConfigOkta = eks.UpdateKubeConfigWithEnhancedCredentials
 	setExecEnv              = k8s.SetExecEnv
 )
+
+// cachedAccountForOptions reports the account the kubeconfig credentials would
+// resolve to without prompting. With an isolation key the credentials live in
+// that key's own cache (the shared profile cache is irrelevant), and the key
+// already encodes the account, so a valid cached entry means targetAccountID.
+func cachedAccountForOptions(opts eks.EnhancedOptions, profile, region, targetAccountID string) (string, error) {
+	if opts.Key == "" {
+		return sts.TryGetAccountID(profile, region)
+	}
+	args, err := okta.SplitCommand(eks.EnhancedCredentialProcess(opts))
+	if err != nil {
+		return "", err
+	}
+	if !okta.HasValidCredentials(args) {
+		return "", fmt.Errorf("no valid cached credentials for key %q", opts.Key)
+	}
+	return targetAccountID, nil
+}
 
 func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfig, targetAccountID string) error {
 	kubeconfigProfile := awsconfig.GetEffectiveKubeconfigProfile(discoveryProfile)
@@ -187,7 +205,7 @@ func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfi
 
 			needsLogin := forceReauth
 			if !forceReauth && targetAccountID != "" {
-				cachedAccount, err := lookupCachedAccountID(kubeconfigProfile, region)
+				cachedAccount, err := lookupCachedAccountID(opts, kubeconfigProfile, region, targetAccountID)
 				if err != nil {
 					needsLogin = true
 				} else if cachedAccount != targetAccountID {
