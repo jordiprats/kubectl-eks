@@ -164,10 +164,11 @@ func loadClusterList(args []string, profile, profile_contains, profile_not_conta
 
 var (
 	lookupCachedAccountID   = cachedAccountForOptions
-	resolveOktaRole        = okta.ResolveRole
+	resolveOktaRole         = okta.ResolveRole
 	runUpdateKubeConfig     = eks.UpdateKubeConfig
 	runUpdateKubeConfigOkta = eks.UpdateKubeConfigWithEnhancedCredentials
 	setExecEnv              = k8s.SetExecEnv
+	setExecEnvInFile        = k8s.SetExecEnvInFile
 )
 
 // cachedAccountForOptions reports the account the kubeconfig credentials would
@@ -228,10 +229,17 @@ func updateKubeConfigForCluster(discoveryProfile, region, clusterName, kubeConfi
 				return err
 			}
 
-			if isoKey != "" && kubeConfig == "" {
+			if isoKey != "" {
 				clusterARN := fmt.Sprintf("arn:aws:eks:%s:%s:cluster/%s", region, targetAccountID, clusterName)
-				if err := setExecEnv(clusterARN, map[string]string{"AWS_OKTA_KEY": isoKey}); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: could not set isolation key in kubeconfig exec env: %v\n", err)
+				envVars := map[string]string{"AWS_OKTA_KEY": isoKey}
+				if kubeConfig == "" {
+					if err := setExecEnv(clusterARN, envVars); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: could not set isolation key in kubeconfig exec env: %v\n", err)
+					}
+				} else {
+					if err := setExecEnvInFile(kubeConfig, clusterARN, envVars); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: could not set isolation key in temp kubeconfig exec env: %v\n", err)
+					}
 				}
 			}
 			return nil

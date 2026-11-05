@@ -11,7 +11,9 @@ import (
 
 	"github.com/jordiprats/kubectl-eks/pkg/awsconfig"
 	"github.com/jordiprats/kubectl-eks/pkg/data"
+	"github.com/jordiprats/kubectl-eks/pkg/eks"
 	"github.com/jordiprats/kubectl-eks/pkg/k8s"
+	"github.com/jordiprats/kubectl-eks/pkg/okta"
 	"github.com/jordiprats/kubectl-eks/pkg/printutils"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -484,6 +486,33 @@ func applyReauthPolicy(clusterArn, requestedProfile string) {
 	}
 }
 
+var checkOktaCreds = oktaCredsValid
+
+// oktaCredsValid returns true when the existing kubeconfig context for
+// clusterARN has Okta-managed credentials that are still valid (i.e. the
+// cached credential_process token has not expired). When no Okta isolation
+// key is present, it returns true so the fast path is not blocked.
+func oktaCredsValid(clusterARN string) bool {
+	isoKey := k8s.GetExecEnvVar(clusterARN, "AWS_OKTA_KEY")
+	if isoKey == "" {
+		return true
+	}
+	kubeconfigProfile := k8s.GetExecEnvVar(clusterARN, "AWS_PROFILE")
+	if kubeconfigProfile == "" {
+		return true
+	}
+	cp, ok := awsconfig.GetCredentialProcess(kubeconfigProfile)
+	if !ok || cp == "" {
+		return true
+	}
+	opts := eks.EnhancedOptions{CredentialProcess: cp, Key: isoKey}
+	args, err := okta.SplitCommand(eks.EnhancedCredentialProcess(opts))
+	if err != nil {
+		return false
+	}
+	return okta.HasValidCredentials(args)
+}
+
 func SwitchToCluster(clusterArn, namespace, profile string) {
 	if reauthOnProfileMismatch {
 		requested := profile
@@ -500,10 +529,11 @@ func SwitchToCluster(clusterArn, namespace, profile string) {
 
 	// Fast path: if no profile override, check if kubeconfig already has a
 	// context for this cluster and switch to it directly, avoiding expensive
-	// AWS API calls.
+	// AWS API calls. Skip if Okta credentials are expired so the full auth
+	// flow can re-authenticate.
 	if profile == "" && !forceReauth {
 		contextName, found := k8s.FindContextForCluster(clusterArn)
-		if found {
+		if found && checkOktaCreds(clusterArn) {
 			if err := k8s.UseContext(contextName); err == nil {
 				if namespace != "" {
 					if err := k8s.SetNamespace(namespace); err != nil {
@@ -608,10 +638,11 @@ func switchClusterWithInfo(clusterInfo *data.ClusterInfo, namespace, profile str
 	}
 	applyReauthPolicy(clusterInfo.Arn, requestedProfile)
 
-	// Fast path: context already exists in kubeconfig
+	// Fast path: context already exists in kubeconfig. Skip if Okta
+	// credentials are expired so the full auth flow can re-authenticate.
 	if profile == "" && !forceReauth {
 		contextName, found := k8s.FindContextForCluster(clusterInfo.Arn)
-		if found {
+		if found && checkOktaCreds(clusterInfo.Arn) {
 			if err := k8s.UseContext(contextName); err == nil {
 				if namespace != "" {
 					if err := k8s.SetNamespace(namespace); err != nil {

@@ -262,6 +262,21 @@ func GetProfileRoleName(profile string) string {
 	return p.SSORoleName
 }
 
+// GetCredentialProcess returns the credential_process for the given profile.
+func GetCredentialProcess(profile string) (string, bool) {
+	if ConfigData == nil {
+		tryLoadAWSConfig()
+	}
+	if ConfigData == nil {
+		return "", false
+	}
+	p, ok := ConfigData.Profiles[profile]
+	if !ok {
+		return "", false
+	}
+	return p.CredentialProcess, p.CredentialProcess != ""
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if v != "" {

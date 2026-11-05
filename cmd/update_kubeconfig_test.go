@@ -11,25 +11,28 @@ import (
 )
 
 type kubeconfigCalls struct {
-	plain       []string
-	okta        []string
-	opts        eks.EnhancedOptions
-	noAWSCache  bool
-	lookups     int
-	roleLookups int
-	rolePref    []string
-	roleAccount string
-	execEnvARN  string
-	execEnvVars map[string]string
+	plain           []string
+	okta            []string
+	opts            eks.EnhancedOptions
+	noAWSCache      bool
+	lookups         int
+	roleLookups     int
+	rolePref        []string
+	roleAccount     string
+	execEnvARN      string
+	execEnvVars     map[string]string
+	execEnvFilePath string
+	execEnvFileARN  string
+	execEnvFileVars map[string]string
 }
 
 func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount string, lookupErr error) *kubeconfigCalls {
 	t.Helper()
 	calls := &kubeconfigCalls{}
 
-	origCfg, origLookup, origPlain, origOkta, origRole, origExecEnv := awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole, setExecEnv
+	origCfg, origLookup, origPlain, origOkta, origRole, origExecEnv, origExecEnvFile := awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole, setExecEnv, setExecEnvInFile
 	t.Cleanup(func() {
-		awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole, setExecEnv = origCfg, origLookup, origPlain, origOkta, origRole, origExecEnv
+		awsconfig.ConfigData, lookupCachedAccountID, runUpdateKubeConfig, runUpdateKubeConfigOkta, resolveOktaRole, setExecEnv, setExecEnvInFile = origCfg, origLookup, origPlain, origOkta, origRole, origExecEnv, origExecEnvFile
 	})
 
 	awsconfig.ConfigData = cfg
@@ -56,6 +59,12 @@ func setupKubeconfigFakes(t *testing.T, cfg *data.AWSConfig, cachedAccount strin
 	setExecEnv = func(clusterARN string, envVars map[string]string) error {
 		calls.execEnvARN = clusterARN
 		calls.execEnvVars = envVars
+		return nil
+	}
+	setExecEnvInFile = func(kubeConfigPath, clusterARN string, envVars map[string]string) error {
+		calls.execEnvFilePath = kubeConfigPath
+		calls.execEnvFileARN = clusterARN
+		calls.execEnvFileVars = envVars
 		return nil
 	}
 	return calls
@@ -356,7 +365,7 @@ func TestUpdateKubeConfigForCluster_NoIsolationKeyWithoutAccountID(t *testing.T)
 	}
 }
 
-func TestUpdateKubeConfigForCluster_NoIsolationKeyForTempKubeconfig(t *testing.T) {
+func TestUpdateKubeConfigForCluster_IsolationKeyForTempKubeconfig(t *testing.T) {
 	calls := setupKubeconfigFakes(t, oktaConfig(), "111111111111", nil)
 
 	if err := updateKubeConfigForCluster("dev", "us-east-1", "c1", "/tmp/kc", "111111111111"); err != nil {
@@ -366,7 +375,17 @@ func TestUpdateKubeConfigForCluster_NoIsolationKeyForTempKubeconfig(t *testing.T
 		t.Errorf("key should still be passed to credential_process, got %q", calls.opts.Key)
 	}
 	if calls.execEnvARN != "" {
-		t.Errorf("exec env should not be patched for temp kubeconfig, got ARN %q", calls.execEnvARN)
+		t.Errorf("default kubeconfig exec env should not be patched for temp kubeconfig, got ARN %q", calls.execEnvARN)
+	}
+	wantARN := "arn:aws:eks:us-east-1:111111111111:cluster/c1"
+	if calls.execEnvFilePath != "/tmp/kc" {
+		t.Errorf("temp kubeconfig path = %q, want %q", calls.execEnvFilePath, "/tmp/kc")
+	}
+	if calls.execEnvFileARN != wantARN {
+		t.Errorf("temp kubeconfig exec env ARN = %q, want %q", calls.execEnvFileARN, wantARN)
+	}
+	if calls.execEnvFileVars["AWS_OKTA_KEY"] != "111111111111-okta" {
+		t.Errorf("temp kubeconfig AWS_OKTA_KEY = %q, want %q", calls.execEnvFileVars["AWS_OKTA_KEY"], "111111111111-okta")
 	}
 }
 

@@ -170,3 +170,74 @@ func TestSetExecEnv_EmptyEnvVars(t *testing.T) {
 	err := SetExecEnv("anything", map[string]string{})
 	assert.NoError(t, err)
 }
+
+func TestSetExecEnvInFile(t *testing.T) {
+	clusterARN := "arn:aws:eks:us-east-1:123456789012:cluster/my-cluster"
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{Server: "https://example.com"}
+	cfg.AuthInfos[clusterARN] = &clientcmdapi.AuthInfo{
+		Exec: &clientcmdapi.ExecConfig{
+			APIVersion: "client.authentication.k8s.io/v1beta1",
+			Command:    "aws",
+			Args:       []string{"eks", "get-token"},
+			Env: []clientcmdapi.ExecEnvVar{
+				{Name: "AWS_PROFILE", Value: "okta"},
+			},
+		},
+	}
+	cfg.Contexts["my-ctx"] = &clientcmdapi.Context{Cluster: clusterARN, AuthInfo: clusterARN}
+	cfg.CurrentContext = "my-ctx"
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "temp-kubeconfig")
+	require.NoError(t, clientcmd.WriteToFile(*cfg, path))
+
+	err := SetExecEnvInFile(path, clusterARN, map[string]string{"AWS_OKTA_KEY": "123-okta"})
+	require.NoError(t, err)
+
+	updated, err := clientcmd.LoadFromFile(path)
+	require.NoError(t, err)
+
+	envMap := make(map[string]string)
+	for _, e := range updated.AuthInfos[clusterARN].Exec.Env {
+		envMap[e.Name] = e.Value
+	}
+	assert.Equal(t, "okta", envMap["AWS_PROFILE"])
+	assert.Equal(t, "123-okta", envMap["AWS_OKTA_KEY"])
+}
+
+func TestGetExecEnvVar_Found(t *testing.T) {
+	clusterARN := "arn:aws:eks:us-east-1:123456789012:cluster/my-cluster"
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{Server: "https://example.com"}
+	cfg.AuthInfos[clusterARN] = &clientcmdapi.AuthInfo{
+		Exec: &clientcmdapi.ExecConfig{
+			Command: "aws",
+			Env: []clientcmdapi.ExecEnvVar{
+				{Name: "AWS_PROFILE", Value: "okta"},
+				{Name: "AWS_OKTA_KEY", Value: "123-okta"},
+			},
+		},
+	}
+	cfg.Contexts["my-ctx"] = &clientcmdapi.Context{Cluster: clusterARN, AuthInfo: clusterARN}
+	cfg.CurrentContext = "my-ctx"
+	writeKubeconfig(t, cfg)
+
+	assert.Equal(t, "123-okta", GetExecEnvVar(clusterARN, "AWS_OKTA_KEY"))
+	assert.Equal(t, "okta", GetExecEnvVar(clusterARN, "AWS_PROFILE"))
+}
+
+func TestGetExecEnvVar_NotFound(t *testing.T) {
+	clusterARN := "arn:aws:eks:us-east-1:123456789012:cluster/my-cluster"
+	cfg := clientcmdapi.NewConfig()
+	cfg.Clusters[clusterARN] = &clientcmdapi.Cluster{Server: "https://example.com"}
+	cfg.AuthInfos[clusterARN] = &clientcmdapi.AuthInfo{
+		Exec: &clientcmdapi.ExecConfig{Command: "aws"},
+	}
+	cfg.Contexts["my-ctx"] = &clientcmdapi.Context{Cluster: clusterARN, AuthInfo: clusterARN}
+	cfg.CurrentContext = "my-ctx"
+	writeKubeconfig(t, cfg)
+
+	assert.Empty(t, GetExecEnvVar(clusterARN, "AWS_OKTA_KEY"))
+	assert.Empty(t, GetExecEnvVar("arn:aws:eks:us-east-1:123456789012:cluster/other", "AWS_OKTA_KEY"))
+}

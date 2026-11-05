@@ -53,20 +53,7 @@ func FindContextForCluster(clusterARN string) (string, bool) {
 	return "", false
 }
 
-// SetExecEnv adds or updates environment variables in the exec block of the
-// kubeconfig user associated with clusterARN. Existing env vars with the same
-// name are replaced; others are left untouched.
-func SetExecEnv(clusterARN string, envVars map[string]string) error {
-	if len(envVars) == 0 {
-		return nil
-	}
-
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	config, err := loadingRules.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load kubeconfig: %w", err)
-	}
-
+func setExecEnvInConfig(config *clientcmdapi.Config, clusterARN string, envVars map[string]string) error {
 	var authInfoName string
 	for _, ctx := range config.Contexts {
 		if ctx.Cluster == clusterARN {
@@ -99,8 +86,73 @@ func SetExecEnv(clusterARN string, envVars map[string]string) error {
 			})
 		}
 	}
+	return nil
+}
+
+// SetExecEnv adds or updates environment variables in the exec block of the
+// kubeconfig user associated with clusterARN. Existing env vars with the same
+// name are replaced; others are left untouched.
+func SetExecEnv(clusterARN string, envVars map[string]string) error {
+	if len(envVars) == 0 {
+		return nil
+	}
+
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	config, err := loadingRules.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
+
+	if err := setExecEnvInConfig(config, clusterARN, envVars); err != nil {
+		return err
+	}
 
 	return clientcmd.WriteToFile(*config, loadingRules.GetDefaultFilename())
+}
+
+// SetExecEnvInFile is like SetExecEnv but operates on a specific kubeconfig
+// file instead of the default one.
+func SetExecEnvInFile(kubeConfigPath, clusterARN string, envVars map[string]string) error {
+	if len(envVars) == 0 {
+		return nil
+	}
+
+	config, err := clientcmd.LoadFromFile(kubeConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to load kubeconfig %s: %w", kubeConfigPath, err)
+	}
+
+	if err := setExecEnvInConfig(config, clusterARN, envVars); err != nil {
+		return err
+	}
+
+	return clientcmd.WriteToFile(*config, kubeConfigPath)
+}
+
+// GetExecEnvVar returns the value of an environment variable from the exec
+// block of the kubeconfig context for the given cluster ARN.
+func GetExecEnvVar(clusterARN, name string) string {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	config, err := loadingRules.Load()
+	if err != nil {
+		return ""
+	}
+
+	for _, ctx := range config.Contexts {
+		if ctx.Cluster == clusterARN {
+			user := config.AuthInfos[ctx.AuthInfo]
+			if user == nil || user.Exec == nil {
+				return ""
+			}
+			for _, e := range user.Exec.Env {
+				if e.Name == name {
+					return e.Value
+				}
+			}
+			return ""
+		}
+	}
+	return ""
 }
 
 // UseContext switches the current kubeconfig context.
