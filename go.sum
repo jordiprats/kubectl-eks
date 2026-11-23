@@ -24,8 +24,8 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.12 h1:lqSi8qvAnKC1vfosIm
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.12/go.mod h1:rqPQE2vqkW9YHx5+Gp55sx1wsTM4xtGQLl+TKMjxxrs=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.12 h1:uvX2yaL+aMjkmnrLPPlR/zwjoKFRMoNhhJfeGjfk6qc=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.12/go.mod h1:dicT+2eNhHHqGkxHO7LoXw3QghIUGuzgdmFqaSTopgI=
-github.com/aws/aws-sdk-go-v2/service/cloudformation v1.84.0 h1:ap0xq0413jOFrQZVs318qjtnXSAVAf/RNBzPZK1aP8A=
-github.com/aws/aws-sdk-go-v2/service/cloudformation v1.84.0/go.mod h1:rLE+2UUfZLqdNwDCQDFses1yeON3u1qeJvUUkd6bUOk=
+github.com/aws/aws-sdk-go-v2/service/cloudformation v1.86.0 h1:1cFRmR5Eo9tm4KJ+B3KWaWhdLN1Dhy9KUZOtuhKUAzw=
+github.com/aws/aws-sdk-go-v2/service/cloudformation v1.86.0/go.mod h1:rLE+2UUfZLqdNwDCQDFses1yeON3u1qeJvUUkd6bUOk=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.348.0 h1:dSWKcL/psVlwm+H3hAryHcZiqeU8Bbm4eO/39VGZCQY=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.348.0/go.mod h1:uMJiOkxaT3pV+LAeAvEaXToZ2x3nEnN53HnPdj+pcNo=
 github.com/aws/aws-sdk-go-v2/service/eks v1.105.6 h1:Uy58lpLYdqznK5ozOITAyGfQOfmYmWw2SxPVZj/FQ9I=
